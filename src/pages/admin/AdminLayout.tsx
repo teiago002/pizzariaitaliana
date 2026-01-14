@@ -17,10 +17,18 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const AdminLayout: React.FC = () => {
-  const { isAuthenticated, logout } = useAdmin();
+  const { isAuthenticated, isLoading, logout } = useAdmin();
   const { settings } = useStore();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/admin" replace />;
@@ -56,12 +64,15 @@ const AdminLayout: React.FC = () => {
     </nav>
   );
 
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-1 bg-card border-r border-border">
-          {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-lg">
               🍕
@@ -72,12 +83,10 @@ const AdminLayout: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation */}
           <div className="flex-1 px-4 py-6 overflow-y-auto">
             <NavLinks />
           </div>
 
-          {/* Footer */}
           <div className="p-4 border-t border-border space-y-2">
             <Link to="/">
               <Button variant="outline" className="w-full justify-start gap-2">
@@ -88,7 +97,7 @@ const AdminLayout: React.FC = () => {
             <Button
               variant="ghost"
               className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-              onClick={logout}
+              onClick={handleLogout}
             >
               <LogOut className="w-4 h-4" />
               Sair
@@ -134,7 +143,7 @@ const AdminLayout: React.FC = () => {
                   <Button
                     variant="ghost"
                     className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-                    onClick={logout}
+                    onClick={handleLogout}
                   >
                     <LogOut className="w-4 h-4" />
                     Sair
