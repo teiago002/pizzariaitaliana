@@ -95,9 +95,12 @@ serve(async (req) => {
         break;
 
       case 'order_ready':
+      case 'order_out_for_delivery':
         message = `🍕 *${pizzeriaName}*\n\n` +
-          `🎉 Seu pedido *${order.id.substring(0, 8).toUpperCase()}* está pronto!\n\n` +
-          `Saindo para entrega agora. 🚗💨`;
+          `🚗💨 *Seu pedido está saindo para entrega!*\n\n` +
+          `📋 *Número:* ${order.id.substring(0, 8).toUpperCase()}\n\n` +
+          `📍 *Endereço:*\n${order.customer_address}${order.customer_complement ? '\n' + order.customer_complement : ''}\n\n` +
+          `Aguarde, logo chegaremos! 🏃‍♂️`;
         break;
 
       case 'order_delivered':

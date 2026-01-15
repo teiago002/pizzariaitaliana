@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, Eye, Clock, CheckCircle, XCircle, Truck, MessageCircle, Loader2 } from 'lucide-react';
+import { Printer, Eye, Clock, CheckCircle, XCircle, Truck, MessageCircle, Loader2, Send } from 'lucide-react';
 import { useOrders } from '@/hooks/useOrders';
 import { useSettings } from '@/hooks/useSettings';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import { Order, OrderStatus } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,20 @@ import { toast } from 'sonner';
 const AdminOrders: React.FC = () => {
   const { orders, loading, updateOrderStatus } = useOrders();
   const { settings } = useSettings();
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+
+  // Real-time notifications for new orders
+  useOrderNotifications((newOrder) => {
+    setNewOrderIds(prev => new Set([...prev, newOrder.id]));
+    // Remove highlight after 30 seconds
+    setTimeout(() => {
+      setNewOrderIds(prev => {
+        const next = new Set(prev);
+        next.delete(newOrder.id);
+        return next;
+      });
+    }, 30000);
+  });
 
   // Only show confirmed orders (as per requirements)
   const confirmedOrders = orders.filter(o => o.status !== 'PENDING');
@@ -52,6 +67,30 @@ const AdminOrders: React.FC = () => {
     } catch (error) {
       console.error('Error sending WhatsApp:', error);
       toast.error('Erro ao abrir WhatsApp');
+    }
+  };
+
+  // Button to mark as "out for delivery" and notify customer
+  const handleOutForDelivery = async (order: Order) => {
+    try {
+      // Update status to READY (saindo para entrega)
+      await updateOrderStatus(order.id, 'READY');
+
+      // Generate WhatsApp message for "out for delivery"
+      const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+        body: { orderId: order.id, messageType: 'order_out_for_delivery' },
+      });
+
+      if (error) throw error;
+
+      if (data.whatsappUrl) {
+        window.open(data.whatsappUrl, '_blank');
+      }
+
+      toast.success('Pedido marcado como saindo para entrega!');
+    } catch (error) {
+      console.error('Error marking out for delivery:', error);
+      toast.error('Erro ao processar');
     }
   };
 
@@ -182,6 +221,8 @@ const AdminOrders: React.FC = () => {
             const status = statusConfig[order.status];
             const StatusIcon = status.icon;
 
+            const isNew = newOrderIds.has(order.id);
+
             return (
               <motion.div
                 key={order.id}
@@ -189,12 +230,17 @@ const AdminOrders: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card>
+                <Card className={isNew ? 'ring-2 ring-secondary ring-offset-2 bg-secondary/5 animate-pulse' : ''}>
                   <CardContent className="p-4">
                     <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                       {/* Order Info */}
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
+                          {isNew && (
+                            <Badge className="bg-secondary text-secondary-foreground animate-bounce">
+                              NOVO!
+                            </Badge>
+                          )}
                           <span className="font-bold text-lg">{order.id.substring(0, 8).toUpperCase()}</span>
                           <Badge className={`${status.color} text-white`}>
                             <StatusIcon className="w-3 h-3 mr-1" />
@@ -220,7 +266,7 @@ const AdminOrders: React.FC = () => {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Select
                           value={order.status}
                           onValueChange={(value) => handleStatusChange(order.id, value as OrderStatus)}
@@ -236,6 +282,20 @@ const AdminOrders: React.FC = () => {
                             <SelectItem value="CANCELLED">Cancelado</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        {/* Out for delivery button */}
+                        {(order.status === 'CONFIRMED' || order.status === 'PREPARING' || order.status === 'READY') && (
+                          <Button 
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleOutForDelivery(order)}
+                            className="gap-1"
+                            title="Avisar saída para entrega"
+                          >
+                            <Send className="w-4 h-4" />
+                            <span className="hidden sm:inline">Saindo</span>
+                          </Button>
+                        )}
 
                         <Dialog>
                           <DialogTrigger asChild>

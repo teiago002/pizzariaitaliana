@@ -43,9 +43,23 @@ export const Header: React.FC = () => {
           <Link to="/" className="flex items-center gap-3">
             <motion.div
               whileHover={{ rotate: 10 }}
-              className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-display text-xl font-bold"
+              className="w-12 h-12 rounded-full bg-primary flex items-center justify-center overflow-hidden"
             >
-              🍕
+              {settings.logo ? (
+                <img 
+                  src={settings.logo} 
+                  alt={`Logo ${settings.name}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    // Fallback to emoji if image fails to load
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = '<span class="text-xl">🍕</span>';
+                  }}
+                />
+              ) : (
+                <span className="text-xl">🍕</span>
+              )}
             </motion.div>
             <div>
               <h1 className="font-display text-xl md:text-2xl font-bold text-foreground">
