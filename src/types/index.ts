@@ -27,6 +27,12 @@ export interface PizzaBorder {
   id: string;
   name: string;
   price: number;
+  prices?: {
+    P: number;
+    M: number;
+    G: number;
+    GG: number;
+  };
 }
 
 export interface Pizza {

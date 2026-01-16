@@ -83,14 +83,30 @@ serve(async (req) => {
   }
 
   try {
-    const { orderId, amount, customerName } = await req.json();
+    const { orderId, customerName } = await req.json();
 
-    console.log('Generating PIX for order:', orderId, 'Amount:', amount);
+    console.log('Generating PIX for order:', orderId);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch order to get the REAL total from the database
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('total')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderError || !order) {
+      console.error('Error fetching order:', orderError);
+      throw new Error('Pedido não encontrado');
+    }
+
+    // Use the REAL total from the database
+    const amount = Number(order.total);
+    console.log('PIX amount from database:', amount);
 
     // Get pizzeria settings for PIX info
     const { data: settings, error: settingsError } = await supabase
@@ -112,10 +128,10 @@ serve(async (req) => {
     // Generate transaction ID
     const txId = `PED${orderId.replace(/-/g, '').substring(0, 20)}`;
 
-    // Generate PIX code
+    // Generate PIX code with the REAL amount from database
     const pixCode = generatePixCode(pixKey, pixName, merchantCity, amount, txId);
 
-    console.log('PIX code generated successfully');
+    console.log('PIX code generated successfully with amount:', amount);
 
     // Update order with PIX transaction ID
     await supabase

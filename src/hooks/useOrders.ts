@@ -181,12 +181,31 @@ export function useOrders() {
     }
   };
 
+  const deleteOrder = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      toast.success('Pedido removido');
+      return true;
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Erro ao remover pedido');
+      return false;
+    }
+  };
+
   return {
     orders,
     loading,
     createOrder,
     updateOrderStatus,
     confirmOrder,
+    deleteOrder,
     refetch: fetchOrders,
   };
 }

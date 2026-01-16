@@ -28,7 +28,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     >
       <Card className="overflow-hidden h-full">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {/* Product Image */}
+            <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+              {product.image ? (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl">
+                  🥤
+                </div>
+              )}
+            </div>
             <div className="flex-1">
               <h3 className="font-semibold text-foreground">{product.name}</h3>
               <p className="text-sm text-muted-foreground">{product.description}</p>

@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, Eye, Clock, CheckCircle, XCircle, Truck, MessageCircle, Loader2, Send } from 'lucide-react';
+import { Printer, Eye, Clock, CheckCircle, XCircle, Truck, MessageCircle, Loader2, Send, Trash2 } from 'lucide-react';
 import { useOrders } from '@/hooks/useOrders';
 import { useSettings } from '@/hooks/useSettings';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
-import { Order, OrderStatus } from '@/types';
+import { Order, OrderStatus, CartItemPizza } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const AdminOrders: React.FC = () => {
-  const { orders, loading, updateOrderStatus } = useOrders();
+  const { orders, loading, updateOrderStatus, deleteOrder } = useOrders();
   const { settings } = useSettings();
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
 
@@ -94,6 +95,10 @@ const AdminOrders: React.FC = () => {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    await deleteOrder(orderId);
+  };
+
   const handlePrint = (order: Order) => {
     const printContent = `
       <html>
@@ -163,19 +168,35 @@ const AdminOrders: React.FC = () => {
 
       <div className="border-t pt-4">
         <p className="text-sm text-muted-foreground mb-2">Itens do Pedido</p>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {order.items.map((item, index) => (
-            <div key={index} className="flex justify-between items-center">
-              <div>
-                <p className="font-medium">
-                  {item.type === 'pizza' 
-                    ? `Pizza ${item.flavors.map(f => f.name).join(' + ')} (${item.size})`
-                    : item.product.name
-                  }
-                </p>
+            <div key={index} className="flex justify-between items-start p-3 bg-muted/30 rounded-lg">
+              <div className="flex-1">
+                {item.type === 'pizza' ? (
+                  <>
+                    <p className="font-medium">
+                      Pizza {(item as CartItemPizza).size} - {(item as CartItemPizza).flavors.length} sabor(es)
+                    </p>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {(item as CartItemPizza).flavors.map((f, i) => (
+                        <span key={f.id}>
+                          {i > 0 && ' + '}
+                          <span className="font-medium text-foreground">{f.name}</span>
+                        </span>
+                      ))}
+                    </div>
+                    {(item as CartItemPizza).border && (
+                      <p className="text-sm text-muted-foreground">
+                        Borda: {(item as CartItemPizza).border?.name}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="font-medium">{item.product.name}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Qtd: {item.quantity}</p>
               </div>
-              <p className="font-medium">R$ {(item.unitPrice * item.quantity).toFixed(2)}</p>
+              <p className="font-medium text-primary">R$ {(item.unitPrice * item.quantity).toFixed(2)}</p>
             </div>
           ))}
         </div>
@@ -324,9 +345,42 @@ const AdminOrders: React.FC = () => {
                           variant="outline" 
                           size="icon"
                           onClick={() => handlePrint(order)}
+                          title="Imprimir pedido"
                         >
                           <Printer className="w-4 h-4" />
                         </Button>
+
+                        {/* Delete Order Button */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              title="Remover pedido"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remover Pedido?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja remover o pedido {order.id.substring(0, 8).toUpperCase()}? 
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteOrder(order.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Remover
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   </CardContent>
