@@ -453,18 +453,29 @@ const PaymentPage: React.FC = () => {
             <p className="text-center text-muted-foreground mt-4 text-sm">
               Valor: <span className="font-bold text-primary">R$ {total.toFixed(2)}</span>
             </p>
+
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Aguardando confirmação do pagamento...
+            </p>
           </div>
 
-          <Button onClick={confirmPixPayment} disabled={isProcessing} className="w-full">
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Confirmando pagamento...
-              </>
-            ) : (
-              'Já paguei'
-            )}
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setShowPixModal(false);
+                clearCart();
+                sessionStorage.removeItem('customerInfo');
+                navigate(`/pedido/${orderId}`);
+              }} 
+              className="w-full"
+            >
+              Acompanhar Pedido
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              A confirmação será automática após o pagamento ser processado
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -498,6 +509,14 @@ const PaymentPage: React.FC = () => {
             >
               <MessageCircle className="w-4 h-4 mr-2" />
               Falar no WhatsApp
+            </Button>
+
+            <Button 
+              variant="secondary"
+              onClick={() => navigate(`/pedido/${orderId}`)} 
+              className="w-full mt-2"
+            >
+              Acompanhar Pedido
             </Button>
 
             <Button onClick={() => navigate('/')} className="w-full mt-2">
