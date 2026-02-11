@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Order, OrderStatus, PaymentMethod, CartItem } from '@/types';
 import { toast } from 'sonner';
+import { usePushNotifications } from './usePushNotifications';
 
 interface DbOrder {
   id: string;
@@ -72,6 +73,12 @@ const playNotificationSound = () => {
 export function useOrderNotifications(onNewOrder?: (order: Order) => void) {
   const processedOrdersRef = useRef<Set<string>>(new Set());
   const isInitializedRef = useRef(false);
+  const { showNotification, requestPermission } = usePushNotifications();
+
+  // Request push notification permission on mount
+  useEffect(() => {
+    requestPermission();
+  }, [requestPermission]);
 
   const handleNewOrder = useCallback((order: Order) => {
     // Only notify for confirmed orders (not PENDING)
@@ -83,6 +90,13 @@ export function useOrderNotifications(onNewOrder?: (order: Order) => void) {
 
     // Play sound
     playNotificationSound();
+
+    // Send push notification (works even when tab is in background)
+    showNotification(
+      '🍕 Novo Pedido!',
+      `${order.customer.name} - R$ ${order.total.toFixed(2)}`,
+      '/admin/pedidos'
+    );
 
     // Show toast notification
     toast.success(
