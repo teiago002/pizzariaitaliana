@@ -66,7 +66,7 @@ const HomePage: React.FC = () => {
                 </Button>
               </Link>
               <a
-                href={`https://wa.me/55${settings.whatsapp.replace(/\D/g, '')}`}
+                href={`https://api.whatsapp.com/send?phone=${settings.whatsapp.replace(/\D/g, '').startsWith('55') ? settings.whatsapp.replace(/\D/g, '') : '55' + settings.whatsapp.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
