@@ -55,7 +55,7 @@ const HomePage: React.FC = () => {
               {settings.name}
             </h1>
             <p className="text-lg md:text-xl text-background/80 mb-8 max-w-lg">
-              Sabor único e exclusivo! Desde 2016, com excelência em cada ingrediente e cuidado em cada receita!
+              Sabor único e exclusivo! Desde 2015, com excelência em cada ingrediente e cuidado em cada receita!
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
