@@ -193,12 +193,34 @@ const PaymentPage: React.FC = () => {
     }
   };
 
+  const getOrderCode = () => orderId ? orderId.substring(0, 8).toUpperCase() : '';
+
+  const copyOrderCode = () => {
+    navigator.clipboard.writeText(getOrderCode());
+    toast.success('Código do pedido copiado!');
+  };
+
   const openWhatsApp = () => {
     const phone = settings.whatsapp.replace(/\D/g, '');
+    const fullPhone = phone.startsWith('55') ? phone : `55${phone}`;
+    const orderCode = getOrderCode();
+    const itemsList = items.map(item => {
+      if (item.type === 'pizza') {
+        const pizza = item as any;
+        return `🍕 Pizza ${pizza.size} - ${pizza.flavors.map((f: any) => f.name).join(' + ')}${pizza.border ? ` (Borda ${pizza.border.name})` : ''} x${item.quantity}`;
+      }
+      return `🥤 ${(item as any).product.name} x${item.quantity}`;
+    }).join('\n');
+    
     const message = encodeURIComponent(
-      `Olá! Acabei de fazer um pedido. Número: ${orderId.substring(0, 8).toUpperCase()}`
+      `Olá! Acabei de fazer um pedido!\n\n` +
+      `📋 *Pedido #${orderCode}*\n\n` +
+      `${itemsList}\n\n` +
+      `💰 Total: R$ ${total.toFixed(2)}\n` +
+      `📍 Entrega: ${customerInfo?.address || ''}\n` +
+      `👤 ${customerInfo?.name || ''}`
     );
-    window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${fullPhone}&text=${message}`, '_blank');
   };
 
   const paymentOptions = [
@@ -493,10 +515,28 @@ const PaymentPage: React.FC = () => {
 
             <DialogTitle className="text-2xl mb-2">Pedido Confirmado!</DialogTitle>
             <DialogDescription className="text-base">
-              Seu pedido <span className="font-bold text-primary">{orderId.substring(0, 8).toUpperCase()}</span> foi recebido com sucesso.
+              Seu pedido foi recebido com sucesso.
             </DialogDescription>
 
-            <div className="mt-6 p-4 bg-muted rounded-lg text-sm text-left">
+            {/* Order Code */}
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Código do Pedido</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl font-mono font-bold text-primary tracking-wider">
+                  {getOrderCode()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={copyOrderCode}
+                  className="h-8 w-8"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm text-left">
               <p className="font-semibold mb-2">Resumo:</p>
               <p className="text-muted-foreground">Entrega para: {customerInfo?.name}</p>
               <p className="text-muted-foreground">Total: R$ {total.toFixed(2)}</p>

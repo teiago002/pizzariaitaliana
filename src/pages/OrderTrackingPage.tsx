@@ -10,7 +10,8 @@ import {
   ArrowLeft,
   MessageCircle,
   Package,
-  Loader2
+  Loader2,
+  Copy
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSettings } from '@/hooks/useSettings';
@@ -18,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OrderStatus, CartItem, CartItemPizza } from '@/types';
+import { toast } from 'sonner';
 
 interface OrderData {
   id: string;
@@ -42,11 +44,11 @@ const OrderTrackingPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const statusSteps = [
-    { status: 'PENDING', label: 'Aguardando', icon: Clock, description: 'Aguardando confirmação de pagamento' },
+    { status: 'PENDING', label: 'Aguardando', icon: Clock, description: 'Aguardando confirmação do pedido' },
     { status: 'CONFIRMED', label: 'Confirmado', icon: CheckCircle, description: 'Pedido confirmado!' },
-    { status: 'PREPARING', label: 'Preparando', icon: ChefHat, description: 'Seu pedido está sendo preparado' },
-    { status: 'READY', label: 'Saindo', icon: Truck, description: 'Pedido saiu para entrega' },
-    { status: 'DELIVERED', label: 'Entregue', icon: Home, description: 'Pedido entregue com sucesso!' },
+    { status: 'PREPARING', label: 'Pedido sendo preparado', icon: ChefHat, description: 'Sua pizza está no forno 🔥' },
+    { status: 'READY', label: 'Saiu para entrega', icon: Truck, description: 'Pedido a caminho! 🛵' },
+    { status: 'DELIVERED', label: 'Entregue', icon: Home, description: 'Pedido entregue com sucesso! ✅' },
   ];
 
   const statusOrder: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'];
@@ -57,6 +59,13 @@ const OrderTrackingPage: React.FC = () => {
     return statusOrder.indexOf(order.status);
   };
 
+  const getOrderCode = () => orderId ? orderId.substring(0, 8).toUpperCase() : '';
+
+  const copyOrderCode = () => {
+    navigator.clipboard.writeText(getOrderCode());
+    toast.success('Código copiado!');
+  };
+
   useEffect(() => {
     if (!orderId) {
       setError('Pedido não encontrado');
@@ -64,7 +73,6 @@ const OrderTrackingPage: React.FC = () => {
       return;
     }
 
-    // Fetch order initially
     const fetchOrder = async () => {
       try {
         const { data, error: fetchError } = await supabase
@@ -94,7 +102,6 @@ const OrderTrackingPage: React.FC = () => {
 
     fetchOrder();
 
-    // Subscribe to realtime updates
     const channel = supabase
       .channel(`order-${orderId}`)
       .on(
@@ -106,7 +113,6 @@ const OrderTrackingPage: React.FC = () => {
           filter: `id=eq.${orderId}`,
         },
         (payload) => {
-          console.log('Order update received:', payload);
           const updated = payload.new as any;
           setOrder({
             ...updated,
@@ -123,11 +129,13 @@ const OrderTrackingPage: React.FC = () => {
   }, [orderId]);
 
   const openWhatsApp = () => {
+    if (!order) return;
     const phone = settings.whatsapp.replace(/\D/g, '');
+    const fullPhone = phone.startsWith('55') ? phone : `55${phone}`;
     const message = encodeURIComponent(
-      `Olá! Gostaria de saber sobre meu pedido ${order?.id.substring(0, 8).toUpperCase()}`
+      `Olá! Gostaria de saber sobre meu pedido #${getOrderCode()}`
     );
-    window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${fullPhone}&text=${message}`, '_blank');
   };
 
   if (loading) {
@@ -188,9 +196,21 @@ const OrderTrackingPage: React.FC = () => {
               <h1 className="font-display text-2xl font-bold text-foreground">
                 Acompanhar Pedido
               </h1>
-              <p className="text-muted-foreground">
-                Pedido #{order.id.substring(0, 8).toUpperCase()}
-              </p>
+              {/* Order Code with copy */}
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-muted-foreground">Pedido</span>
+                <span className="font-mono font-bold text-primary text-lg">
+                  #{getOrderCode()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={copyOrderCode}
+                  className="h-7 w-7"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
             {isCancelled && (
               <Badge variant="destructive" className="text-sm">
@@ -217,7 +237,6 @@ const OrderTrackingPage: React.FC = () => {
                     transition={{ delay: index * 0.1 }}
                     className="flex items-start gap-4 mb-6 last:mb-0"
                   >
-                    {/* Icon Circle */}
                     <div className="relative flex-shrink-0">
                       <div
                         className={`
@@ -230,7 +249,6 @@ const OrderTrackingPage: React.FC = () => {
                       >
                         <StepIcon className="w-5 h-5" />
                       </div>
-                      {/* Connecting Line */}
                       {index < statusSteps.length - 1 && (
                         <div
                           className={`
@@ -241,7 +259,6 @@ const OrderTrackingPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Text Content */}
                     <div className={`pt-2 ${isCancelled ? 'opacity-50' : ''}`}>
                       <h3 className={`font-semibold ${isCurrent && !isCancelled ? 'text-primary' : ''}`}>
                         {step.label}
@@ -281,7 +298,7 @@ const OrderTrackingPage: React.FC = () => {
                         )}
                       </>
                     ) : (
-                      <p className="font-medium">{item.product.name}</p>
+                      <p className="font-medium">{(item as any).product.name}</p>
                     )}
                     <p className="text-xs text-muted-foreground">Qtd: {item.quantity}</p>
                   </div>

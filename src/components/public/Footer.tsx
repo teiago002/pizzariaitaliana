@@ -28,7 +28,7 @@ export const Footer: React.FC = () => {
             <h4 className="font-display text-lg font-semibold mb-4">Contato</h4>
             <div className="space-y-3 text-sm">
               <a 
-                href={`https://wa.me/55${settings.whatsapp.replace(/\D/g, '')}`}
+                href={`https://api.whatsapp.com/send?phone=${settings.whatsapp.replace(/\D/g, '').startsWith('55') ? settings.whatsapp.replace(/\D/g, '') : '55' + settings.whatsapp.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-muted-foreground hover:text-background transition-colors"
