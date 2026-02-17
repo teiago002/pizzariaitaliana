@@ -56,13 +56,13 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
     },
   });
 
-  // Fetch pizza flavors from database
+  // Fetch pizza flavors from database with category info
   const { data: flavorsData, isLoading: isLoadingFlavors, refetch: refetchFlavors } = useQuery({
     queryKey: ['pizza-flavors'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pizza_flavors')
-        .select('*')
+        .select('*, pizza_categories(id, name)')
         .eq('available', true)
         .order('name');
       
@@ -128,6 +128,8 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
     description: f.description || '',
     ingredients: f.ingredients || [],
     image: f.image_url || undefined,
+    categoryId: f.category_id || undefined,
+    categoryName: (f as any).pizza_categories?.name || undefined,
     prices: {
       P: Number(f.price_p),
       M: Number(f.price_m),

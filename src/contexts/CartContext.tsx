@@ -27,9 +27,13 @@ interface CartProviderProps {
 }
 
 const calculatePizzaPrice = (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder): number => {
-  // Get highest price among flavors for this size
-  const flavorPrice = Math.max(...flavors.map(f => f.prices[size]));
-  // Use size-specific border price if available
+  let flavorPrice: number;
+  if (flavors.length === 2) {
+    // Split: (flavor A price / 2) + (flavor B price / 2)
+    flavorPrice = flavors.reduce((sum, f) => sum + f.prices[size] / 2, 0);
+  } else {
+    flavorPrice = Math.max(...flavors.map(f => f.prices[size]));
+  }
   const borderPrice = border 
     ? (border.prices?.[size] || border.price || 0) 
     : 0;

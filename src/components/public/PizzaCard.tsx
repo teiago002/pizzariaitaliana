@@ -43,8 +43,13 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   };
 
   const calculatePrice = () => {
-    const flavorPrice = Math.max(...selectedFlavors.map(f => f.prices[selectedSize]));
-    // Use size-specific border price if available
+    let flavorPrice: number;
+    if (selectedFlavors.length === 2) {
+      // Split: (flavor A / 2) + (flavor B / 2)
+      flavorPrice = selectedFlavors.reduce((sum, f) => sum + f.prices[selectedSize] / 2, 0);
+    } else {
+      flavorPrice = Math.max(...selectedFlavors.map(f => f.prices[selectedSize]));
+    }
     const borderPrice = wantsBorder && selectedBorder 
       ? (selectedBorder.prices?.[selectedSize] || selectedBorder.price) 
       : 0;
@@ -177,7 +182,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
             {flavorCount === 2 && (
               <div>
                 <h4 className="font-medium mb-3">Selecione os Sabores ({selectedFlavors.length}/2)</h4>
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
                   {allFlavors.map((f) => {
                     const isSelected = selectedFlavors.some(sf => sf.id === f.id);
                     return (
@@ -190,14 +195,36 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                             : 'border-border hover:border-primary/50'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          {isSelected && <Check className="w-4 h-4 text-primary" />}
-                          <span className="font-medium text-sm">{f.name}</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
+                            <span className="font-medium text-sm">{f.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {f.categoryName && (
+                              <Badge variant="secondary" className="text-xs">
+                                {f.categoryName}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              R$ {(f.prices[selectedSize] / 2).toFixed(2)}
+                            </span>
+                          </div>
                         </div>
                       </button>
                     );
                   })}
                 </div>
+                {selectedFlavors.length === 2 && (
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-1">
+                    {selectedFlavors.map((sf) => (
+                      <div key={sf.id} className="flex justify-between text-sm">
+                        <span>½ {sf.name} {sf.categoryName && <span className="text-muted-foreground">({sf.categoryName})</span>}</span>
+                        <span className="font-medium">R$ {(sf.prices[selectedSize] / 2).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

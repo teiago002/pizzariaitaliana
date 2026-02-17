@@ -15,6 +15,8 @@ export interface PizzaFlavor {
   description: string;
   ingredients: string[];
   image?: string;
+  categoryId?: string;
+  categoryName?: string;
   prices: {
     P: number;
     M: number;

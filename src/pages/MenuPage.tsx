@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Loader2 } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
@@ -21,7 +21,46 @@ const MenuPage: React.FC = () => {
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const categories = [...new Set(products.map(p => p.category))];
+  // Group flavors by category
+  const flavorsByCategory = useMemo(() => {
+    const groups: { categoryName: string; categoryId: string | undefined; flavors: typeof filteredFlavors }[] = [];
+    const categoryMap = new Map<string, typeof filteredFlavors>();
+    const uncategorized: typeof filteredFlavors = [];
+
+    filteredFlavors.forEach(f => {
+      if (f.categoryName && f.categoryId) {
+        const key = f.categoryId;
+        if (!categoryMap.has(key)) {
+          categoryMap.set(key, []);
+        }
+        categoryMap.get(key)!.push(f);
+      } else {
+        uncategorized.push(f);
+      }
+    });
+
+    // Add categorized groups
+    categoryMap.forEach((catFlavors, categoryId) => {
+      groups.push({
+        categoryName: catFlavors[0].categoryName!,
+        categoryId,
+        flavors: catFlavors,
+      });
+    });
+
+    // Add uncategorized at the end
+    if (uncategorized.length > 0) {
+      groups.push({
+        categoryName: 'Outras Pizzas',
+        categoryId: undefined,
+        flavors: uncategorized,
+      });
+    }
+
+    return groups;
+  }, [filteredFlavors]);
+
+  const productCategories = [...new Set(products.map(p => p.category))];
 
   const isLoading = isLoadingFlavors || isLoadingProducts;
 
@@ -69,17 +108,30 @@ const MenuPage: React.FC = () => {
             </TabsList>
 
             <TabsContent value="pizzas">
-              {filteredFlavors.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredFlavors.map((flavor, index) => (
-                    <motion.div
-                      key={flavor.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <PizzaCard flavor={flavor} />
-                    </motion.div>
+              {flavorsByCategory.length > 0 ? (
+                <div className="space-y-10">
+                  {flavorsByCategory.map((group) => (
+                    <div key={group.categoryId || 'other'}>
+                      <motion.h3
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="font-display text-2xl font-semibold text-foreground mb-6 border-l-4 border-primary pl-4"
+                      >
+                        {group.categoryName}
+                      </motion.h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {group.flavors.map((flavor, index) => (
+                          <motion.div
+                            key={flavor.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                          >
+                            <PizzaCard flavor={flavor} />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -90,7 +142,7 @@ const MenuPage: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="bebidas">
-              {categories.map((category) => {
+              {productCategories.map((category) => {
                 const categoryProducts = filteredProducts.filter(p => p.category === category);
                 if (categoryProducts.length === 0) return null;
 
