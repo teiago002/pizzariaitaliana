@@ -15,6 +15,8 @@ import CartPage from "@/pages/CartPage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import PaymentPage from "@/pages/PaymentPage";
 import OrderTrackingPage from "@/pages/OrderTrackingPage";
+// Auth
+import LoginPage from "@/pages/LoginPage";
 // Admin Pages
 import AdminLoginPage from "@/pages/admin/AdminLoginPage";
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -22,6 +24,13 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminOrders from "@/pages/admin/AdminOrders";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminSettings from "@/pages/admin/AdminSettings";
+// Employee Pages
+import EmployeeLayout from "@/pages/employee/EmployeeLayout";
+import EmployeeOrders from "@/pages/employee/EmployeeOrders";
+import NewLocalOrder from "@/pages/employee/NewLocalOrder";
+// Delivery Pages
+import DeliveryLayout from "@/pages/delivery/DeliveryLayout";
+import DeliveryOrders from "@/pages/delivery/DeliveryOrders";
 
 import NotFound from "./pages/NotFound";
 
@@ -37,7 +46,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                {/* Public Routes - No Login Required */}
+                {/* Public Routes */}
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/cardapio" element={<MenuPage />} />
@@ -47,6 +56,9 @@ const App = () => (
                   <Route path="/pedido/:orderId" element={<OrderTrackingPage />} />
                 </Route>
 
+                {/* Unified Login */}
+                <Route path="/login" element={<LoginPage />} />
+
                 {/* Admin Routes */}
                 <Route path="/admin" element={<AdminLoginPage />} />
                 <Route path="/admin" element={<AdminLayout />}>
@@ -54,6 +66,17 @@ const App = () => (
                   <Route path="pedidos" element={<AdminOrders />} />
                   <Route path="produtos" element={<AdminProducts />} />
                   <Route path="configuracoes" element={<AdminSettings />} />
+                </Route>
+
+                {/* Employee Routes */}
+                <Route path="/funcionario" element={<EmployeeLayout />}>
+                  <Route path="pedidos" element={<EmployeeOrders />} />
+                  <Route path="novo-pedido" element={<NewLocalOrder />} />
+                </Route>
+
+                {/* Delivery Routes */}
+                <Route path="/entregador" element={<DeliveryLayout />}>
+                  <Route path="entregas" element={<DeliveryOrders />} />
                 </Route>
 
                 {/* 404 */}

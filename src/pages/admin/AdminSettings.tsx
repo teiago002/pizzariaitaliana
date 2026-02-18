@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Save, Store, Palette, MapPin, Phone, Upload, CreditCard, Loader2 } from 'lucide-react';
+import { Save, Store, Palette, MapPin, Phone, Upload, CreditCard, Loader2, Clock } from 'lucide-react';
+import OperatingHoursManager from '@/components/admin/OperatingHoursManager';
 import { useSettings } from '@/hooks/useSettings';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -211,6 +212,9 @@ const AdminSettings: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Operating Hours */}
+        <OperatingHoursManager />
 
         <Button size="lg" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
           {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
