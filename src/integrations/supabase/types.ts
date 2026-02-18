@@ -14,10 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      operating_hours: {
+        Row: {
+          close_time: string
+          created_at: string
+          day_of_week: number
+          id: string
+          is_open: boolean
+          open_time: string
+          updated_at: string
+        }
+        Insert: {
+          close_time?: string
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_open?: boolean
+          open_time?: string
+          updated_at?: string
+        }
+        Update: {
+          close_time?: string
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_open?: boolean
+          open_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           change_for: number | null
           created_at: string
+          created_by: string | null
           customer_address: string
           customer_complement: string | null
           customer_name: string
@@ -25,15 +56,18 @@ export type Database = {
           id: string
           items: Json
           needs_change: boolean | null
+          order_type: Database["public"]["Enums"]["order_type"]
           payment_method: Database["public"]["Enums"]["payment_method"]
           pix_transaction_id: string | null
           status: Database["public"]["Enums"]["order_status"]
+          table_number: string | null
           total: number
           updated_at: string
         }
         Insert: {
           change_for?: number | null
           created_at?: string
+          created_by?: string | null
           customer_address: string
           customer_complement?: string | null
           customer_name: string
@@ -41,15 +75,18 @@ export type Database = {
           id?: string
           items: Json
           needs_change?: boolean | null
+          order_type?: Database["public"]["Enums"]["order_type"]
           payment_method: Database["public"]["Enums"]["payment_method"]
           pix_transaction_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          table_number?: string | null
           total: number
           updated_at?: string
         }
         Update: {
           change_for?: number | null
           created_at?: string
+          created_by?: string | null
           customer_address?: string
           customer_complement?: string | null
           customer_name?: string
@@ -57,9 +94,11 @@ export type Database = {
           id?: string
           items?: Json
           needs_change?: boolean | null
+          order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: Database["public"]["Enums"]["payment_method"]
           pix_transaction_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
+          table_number?: string | null
           total?: number
           updated_at?: string
         }
@@ -298,6 +337,27 @@ export type Database = {
         }
         Relationships: []
       }
+      special_closures: {
+        Row: {
+          closure_date: string
+          created_at: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          closure_date: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          closure_date?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -338,6 +398,7 @@ export type Database = {
         | "READY"
         | "DELIVERED"
         | "CANCELLED"
+      order_type: "delivery" | "local"
       payment_method: "pix" | "cash" | "card"
       pizza_size: "P" | "M" | "G" | "GG"
     }
@@ -476,6 +537,7 @@ export const Constants = {
         "DELIVERED",
         "CANCELLED",
       ],
+      order_type: ["delivery", "local"],
       payment_method: ["pix", "cash", "card"],
       pizza_size: ["P", "M", "G", "GG"],
     },
