@@ -226,29 +226,36 @@ const AdminDashboard: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
+            className="admin-card"
           >
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
-                    {stat.change !== 0 && (
-                      <div className="flex items-center gap-1 mt-2">
-                        {stat.change >= 0 ? (
-                          <ArrowUp className="w-3 h-3 text-secondary" />
-                        ) : (
-                          <ArrowDown className="w-3 h-3 text-destructive" />
+            <Card className="overflow-hidden border-0 shadow-md">
+              <CardContent className="p-0">
+                <div className="flex items-stretch">
+                  {/* Colored accent strip */}
+                  <div className={`w-1.5 shrink-0 ${stat.bgColor.replace('/10', '')} opacity-80`} />
+                  <div className="flex-1 p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{stat.title}</p>
+                        <p className="text-2xl font-bold mt-1 text-foreground">{stat.value}</p>
+                        {stat.change !== 0 && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <span className={`inline-flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                              stat.change >= 0 
+                                ? 'bg-secondary/10 text-secondary' 
+                                : 'bg-destructive/10 text-destructive'
+                            }`}>
+                              {stat.change >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                              {Math.abs(stat.change).toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">vs anterior</span>
+                          </div>
                         )}
-                        <span className={`text-xs ${stat.change >= 0 ? 'text-secondary' : 'text-destructive'}`}>
-                          {Math.abs(stat.change).toFixed(1)}%
-                        </span>
-                        <span className="text-xs text-muted-foreground">vs período anterior</span>
                       </div>
-                    )}
-                  </div>
-                  <div className={`w-12 h-12 rounded-full ${stat.bgColor} flex items-center justify-center`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                      <div className={`w-11 h-11 rounded-2xl ${stat.bgColor} flex items-center justify-center`}>
+                        <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -344,29 +351,37 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Recent Orders Preview */}
-      <Card>
-        <CardHeader>
+      <Card className="shadow-md border-0">
+        <CardHeader className="border-b border-border pb-4">
           <CardTitle className="text-lg">Pedidos Recentes</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           {orders.length > 0 ? (
-            <div className="space-y-3">
-              {orders.slice(0, 5).map((order) => (
-                <div 
+            <div className="space-y-2">
+              {orders.slice(0, 5).map((order, i) => (
+                <motion.div
                   key={order.id}
-                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
                 >
-                  <div>
-                    <p className="font-medium">{order.id.substring(0, 8).toUpperCase()}</p>
-                    <p className="text-sm text-muted-foreground">{order.customer.name}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <ShoppingBag className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{order.id.substring(0, 8).toUpperCase()}</p>
+                      <p className="text-xs text-muted-foreground">{order.customer.name}</p>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-primary">R$ {order.total.toFixed(2)}</p>
+                    <p className="font-bold text-primary text-sm">R$ {order.total.toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(order.createdAt).toLocaleString('pt-BR')}
                     </p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           ) : (
