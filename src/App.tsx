@@ -24,6 +24,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminOrders from "@/pages/admin/AdminOrders";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminSettings from "@/pages/admin/AdminSettings";
+import AdminUsers from "@/pages/admin/AdminUsers";
 // Employee Pages
 import EmployeeLayout from "@/pages/employee/EmployeeLayout";
 import EmployeeOrders from "@/pages/employee/EmployeeOrders";
@@ -65,6 +66,7 @@ const App = () => (
                   <Route path="dashboard" element={<AdminDashboard />} />
                   <Route path="pedidos" element={<AdminOrders />} />
                   <Route path="produtos" element={<AdminProducts />} />
+                  <Route path="usuarios" element={<AdminUsers />} />
                   <Route path="configuracoes" element={<AdminSettings />} />
                 </Route>
 
