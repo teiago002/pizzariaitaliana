@@ -738,14 +738,14 @@ const AdminProducts: React.FC = () => {
             <div>
               <Label>Categoria</Label>
               <Select
-                value={flavorForm.category_id}
-                onValueChange={(value) => setFlavorForm(f => ({ ...f, category_id: value }))}
+                value={flavorForm.category_id || 'none'}
+                onValueChange={(value) => setFlavorForm(f => ({ ...f, category_id: value === 'none' ? '' : value }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma categoria (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem categoria</SelectItem>
+                  <SelectItem value="none">Sem categoria</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
