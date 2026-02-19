@@ -403,6 +403,10 @@ const AdminProducts: React.FC = () => {
       toast.error('Nome é obrigatório');
       return;
     }
+    if (!flavorForm.category_id) {
+      toast.error('Categoria é obrigatória');
+      return;
+    }
     saveFlavorMutation.mutate({
       name: flavorForm.name,
       description: flavorForm.description,
@@ -736,16 +740,16 @@ const AdminProducts: React.FC = () => {
             </div>
 
             <div>
-              <Label>Categoria</Label>
+              <Label>Categoria <span className="text-destructive">*</span></Label>
               <Select
                 value={flavorForm.category_id || 'none'}
                 onValueChange={(value) => setFlavorForm(f => ({ ...f, category_id: value === 'none' ? '' : value }))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria (opcional)" />
+                <SelectTrigger className={!flavorForm.category_id ? 'border-destructive/50' : ''}>
+                  <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
+                  <SelectItem value="none" disabled>Selecione uma categoria</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
