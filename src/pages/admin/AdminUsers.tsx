@@ -166,6 +166,7 @@ const AdminUsers: React.FC = () => {
                 key={user.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
+                className="admin-card"
               >
                 <Card className={user.banned ? 'opacity-60' : ''}>
                   <CardContent className="p-4">
