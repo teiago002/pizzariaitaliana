@@ -1,25 +1,53 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
-  Pizza, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Pizza,
+  Settings,
+  LogOut,
   Home,
   Users,
-  ChevronRight
+  ChevronRight,
+  Sun,
+  Moon,
+  Bell,
 } from 'lucide-react';
 import { useAdmin } from '@/contexts/AdminContext';
 import { useStore } from '@/contexts/StoreContext';
-import { Button } from '@/components/ui/button';
+import { useOrders } from '@/hooks/useOrders';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
+import { Badge } from '@/components/ui/badge';
 
 const AdminLayout: React.FC = () => {
   const { isAuthenticated, isLoading, logout } = useAdmin();
   const { settings } = useStore();
+  const { orders } = useOrders();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Count new/confirmed undelivered orders for badge
+  useEffect(() => {
+    const active = orders.filter(o => !['DELIVERED', 'CANCELLED', 'PENDING'].includes(o.status));
+    setPendingCount(active.length);
+  }, [orders]);
+
+  // Bump badge on new orders
+  useOrderNotifications();
+
+  const toggleDark = () => {
+    const html = document.documentElement;
+    if (isDark) {
+      html.classList.remove('dark');
+      setIsDark(false);
+    } else {
+      html.classList.add('dark');
+      setIsDark(true);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -34,11 +62,11 @@ const AdminLayout: React.FC = () => {
   }
 
   const navItems = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag },
-    { path: '/admin/produtos', label: 'Produtos', icon: Pizza },
-    { path: '/admin/usuarios', label: 'Usuários', icon: Users },
-    { path: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+    { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: 0 },
+    { path: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag, badge: pendingCount },
+    { path: '/admin/produtos', label: 'Produtos', icon: Pizza, badge: 0 },
+    { path: '/admin/usuarios', label: 'Usuários', icon: Users, badge: 0 },
+    { path: '/admin/configuracoes', label: 'Configurações', icon: Settings, badge: 0 },
   ];
 
   const handleLogout = async () => { await logout(); };
@@ -52,10 +80,9 @@ const AdminLayout: React.FC = () => {
         className="hidden lg:flex flex-col fixed inset-y-0 left-0 z-40 transition-all duration-300 ease-in-out"
         style={{ width: isExpanded ? '240px' : '68px' }}
       >
-        {/* Glass background */}
+        {/* Background */}
         <div className="absolute inset-0 bg-card border-r border-border shadow-lg" />
-
-        {/* Glow accent line */}
+        {/* Glow accent */}
         <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-gradient-to-b from-transparent via-primary/40 to-transparent" />
 
         <div className="relative flex flex-col h-full z-10">
@@ -80,6 +107,33 @@ const AdminLayout: React.FC = () => {
             </AnimatePresence>
           </div>
 
+          {/* Dark mode toggle */}
+          <div className="flex items-center px-2 py-2 border-b border-border overflow-hidden">
+            <button
+              onClick={toggleDark}
+              className="flex items-center gap-3 px-3 py-2 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors w-full group"
+              title={isDark ? 'Modo Claro' : 'Modo Escuro'}
+            >
+              {isDark
+                ? <Sun className="w-5 h-5 shrink-0 group-hover:scale-110 transition-transform" />
+                : <Moon className="w-5 h-5 shrink-0 group-hover:scale-110 transition-transform" />
+              }
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.16 }}
+                    className="text-sm font-medium whitespace-nowrap"
+                  >
+                    {isDark ? 'Modo Claro' : 'Modo Escuro'}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
+          </div>
+
           {/* Nav Items */}
           <nav className="flex-1 py-4 space-y-1 px-2 overflow-hidden">
             {navItems.map((item) => {
@@ -94,7 +148,6 @@ const AdminLayout: React.FC = () => {
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                 >
-                  {/* Active indicator pill */}
                   {isActive && (
                     <motion.span
                       layoutId="activeNav"
@@ -102,18 +155,31 @@ const AdminLayout: React.FC = () => {
                       transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     />
                   )}
-                  <item.icon className={`w-5 h-5 shrink-0 relative z-10 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
+                  <div className="relative z-10 shrink-0">
+                    <item.icon className={`w-5 h-5 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`} />
+                    {/* Badge on icon when collapsed */}
+                    {!isExpanded && item.badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </div>
                   <AnimatePresence>
                     {isExpanded && (
-                      <motion.span
+                      <motion.div
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -8 }}
                         transition={{ duration: 0.16 }}
-                        className="text-sm font-medium relative z-10 whitespace-nowrap"
+                        className="flex-1 flex items-center justify-between relative z-10 whitespace-nowrap"
                       >
-                        {item.label}
-                      </motion.span>
+                        <span className="text-sm font-medium">{item.label}</span>
+                        {item.badge > 0 && (
+                          <Badge className="bg-destructive text-destructive-foreground text-[10px] h-5 px-1.5 ml-2">
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </Badge>
+                        )}
+                      </motion.div>
                     )}
                   </AnimatePresence>
                 </Link>
@@ -187,29 +253,41 @@ const AdminLayout: React.FC = () => {
           </div>
           <span className="font-display font-bold text-foreground text-sm">{settings.name}</span>
         </div>
-        {/* Mobile nav: horizontal scrollable tabs */}
-        <nav className="flex gap-1 overflow-x-auto">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`p-2 rounded-lg transition-colors ${
-                  isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-              </Link>
-            );
-          })}
-          <Link to="/" className="p-2 rounded-lg text-muted-foreground hover:bg-muted">
-            <Home className="w-4 h-4" />
-          </Link>
-        </nav>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleDark}
+            className="p-2 rounded-lg text-muted-foreground hover:bg-muted"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <nav className="flex gap-1 overflow-x-auto">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`relative p-2 rounded-lg transition-colors ${
+                    isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+            <Link to="/" className="p-2 rounded-lg text-muted-foreground hover:bg-muted">
+              <Home className="w-4 h-4" />
+            </Link>
+          </nav>
+        </div>
       </header>
 
-      {/* Main Content — shifts right based on sidebar width */}
+      {/* Main Content */}
       <main
         className="flex-1 min-h-screen transition-all duration-300 ease-in-out pt-14 lg:pt-0"
         style={{ marginLeft: '68px' }}

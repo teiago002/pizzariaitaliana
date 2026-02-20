@@ -274,6 +274,44 @@ export type Database = {
         }
         Relationships: []
       }
+      product_variants: {
+        Row: {
+          available: boolean
+          created_at: string
+          id: string
+          price: number
+          product_id: string
+          size_label: string
+          updated_at: string
+        }
+        Insert: {
+          available?: boolean
+          created_at?: string
+          id?: string
+          price?: number
+          product_id: string
+          size_label: string
+          updated_at?: string
+        }
+        Update: {
+          available?: boolean
+          created_at?: string
+          id?: string
+          price?: number
+          product_id?: string
+          size_label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           available: boolean

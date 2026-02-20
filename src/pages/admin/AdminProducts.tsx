@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tables } from '@/integrations/supabase/types';
 import PizzaCategoriesManager from '@/components/admin/PizzaCategoriesManager';
+import ProductVariantsManager from '@/components/admin/ProductVariantsManager';
 
 type PizzaFlavor = Tables<'pizza_flavors'>;
 type PizzaBorder = Tables<'pizza_borders'>;
@@ -671,7 +672,7 @@ const AdminProducts: React.FC = () => {
                               product.available ? 'bg-green-500' : 'bg-red-500'
                             }`} />
                           </div>
-                          <div className="flex gap-2 mt-3">
+                      <div className="flex gap-2 mt-3">
                             <Button 
                               size="sm" 
                               variant="outline" 
@@ -690,6 +691,9 @@ const AdminProducts: React.FC = () => {
                             >
                               <Trash2 className="w-3 h-3" />
                             </Button>
+                          </div>
+                          <div className="mt-3 pt-3 border-t">
+                            <ProductVariantsManager productId={product.id} productName={product.name} />
                           </div>
                         </div>
                       </div>
