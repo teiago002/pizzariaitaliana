@@ -15,8 +15,10 @@ import CartPage from "@/pages/CartPage";
 import CheckoutPage from "@/pages/CheckoutPage";
 import PaymentPage from "@/pages/PaymentPage";
 import OrderTrackingPage from "@/pages/OrderTrackingPage";
+
 // Auth
 import LoginPage from "@/pages/LoginPage";
+
 // Admin Pages
 import AdminLoginPage from "@/pages/admin/AdminLoginPage";
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -25,10 +27,12 @@ import AdminOrders from "@/pages/admin/AdminOrders";
 import AdminProducts from "@/pages/admin/AdminProducts";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminUsers from "@/pages/admin/AdminUsers";
+
 // Employee Pages
 import EmployeeLayout from "@/pages/employee/EmployeeLayout";
 import EmployeeOrders from "@/pages/employee/EmployeeOrders";
 import NewLocalOrder from "@/pages/employee/NewLocalOrder";
+
 // Delivery Pages
 import DeliveryLayout from "@/pages/delivery/DeliveryLayout";
 import DeliveryOrders from "@/pages/delivery/DeliveryOrders";
@@ -47,6 +51,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
+                
                 {/* Public Routes */}
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<HomePage />} />
