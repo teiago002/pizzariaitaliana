@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Check, Lock } from 'lucide-react';
+import { Plus, Lock } from 'lucide-react';
 import { PizzaFlavor, PizzaSize, PizzaBorder } from '@/types';
 import { useStore } from '@/contexts/StoreContext';
 import { useCart } from '@/contexts/CartContext';
@@ -18,7 +18,7 @@ interface PizzaCardProps {
 }
 
 export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
-  const { borders, flavors: allFlavors, operatingHours } = useStore();
+  const { operatingHours } = useStore();
   const { addPizza } = useCart();
 
   const openNow = isPizzeriaOpen(operatingHours);
@@ -27,30 +27,25 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
   const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([flavor]);
-  const [wantsBorder, setWantsBorder] = useState(false);
   const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
-  const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
 
   const handleOpenModal = () => {
     if (!openNow) {
       toast.error(closedMessage);
       return;
     }
-
     setSelectedFlavors([flavor]);
-    setFlavorCount(1);
-    setWantsBorder(false);
     setSelectedBorder(undefined);
     setIsOpen(true);
   };
 
   const handleAddToCart = () => {
     if (!openNow) {
-      toast.error('Pedidos somente dentro do horário de funcionamento.');
+      toast.error('Pedidos apenas no horário de funcionamento.');
       return;
     }
 
-    addPizza(selectedSize, selectedFlavors, wantsBorder ? selectedBorder : undefined);
+    addPizza(selectedSize, selectedFlavors, selectedBorder);
     toast.success('Pizza adicionada ao carrinho 🍕');
     setIsOpen(false);
   };
@@ -64,24 +59,11 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
           )
         : Math.max(...selectedFlavors.map(f => f.prices[selectedSize]));
 
-    const borderPrice =
-      wantsBorder && selectedBorder
-        ? selectedBorder.prices?.[selectedSize] || selectedBorder.price
-        : 0;
+    const borderPrice = selectedBorder
+      ? selectedBorder.prices?.[selectedSize] || selectedBorder.price
+      : 0;
 
     return flavorPrice + borderPrice;
-  };
-
-  const toggleSecondFlavor = (flavorToToggle: PizzaFlavor) => {
-    if (flavorCount === 1) return;
-
-    const exists = selectedFlavors.some(f => f.id === flavorToToggle.id);
-
-    if (exists && selectedFlavors.length > 1) {
-      setSelectedFlavors(prev => prev.filter(f => f.id !== flavorToToggle.id));
-    } else if (!exists && selectedFlavors.length < 2) {
-      setSelectedFlavors(prev => [...prev, flavorToToggle]);
-    }
   };
 
   const sizeLabels: Record<PizzaSize, string> = {
@@ -101,7 +83,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
       >
         <Card
           onClick={handleOpenModal}
-          className={`overflow-hidden h-full transition ${
+          className={`group overflow-hidden h-full transition ${
             openNow ? 'cursor-pointer' : 'opacity-70 cursor-not-allowed'
           }`}
         >
@@ -160,7 +142,6 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* TAMANHO */}
             <div>
               <h4 className="font-medium mb-3">Tamanho</h4>
               <RadioGroup
@@ -170,11 +151,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               >
                 {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
                   <div key={size}>
-                    <RadioGroupItem
-                      value={size}
-                      id={`size-${size}`}
-                      className="peer sr-only"
-                    />
+                    <RadioGroupItem value={size} id={`size-${size}`} className="peer sr-only" />
                     <Label
                       htmlFor={`size-${size}`}
                       className="flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
@@ -189,7 +166,6 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               </RadioGroup>
             </div>
 
-            {/* TOTAL */}
             <div className="pt-4 border-t">
               <div className="flex justify-between mb-4">
                 <span className="text-muted-foreground">Total</span>
@@ -198,12 +174,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 </span>
               </div>
 
-              <Button
-                onClick={handleAddToCart}
-                className="w-full"
-                size="lg"
-                disabled={flavorCount === 2 && selectedFlavors.length < 2}
-              >
+              <Button onClick={handleAddToCart} className="w-full" size="lg">
                 <Plus className="w-4 h-4 mr-2" />
                 Adicionar ao carrinho
               </Button>

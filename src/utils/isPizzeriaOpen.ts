@@ -1,45 +1,30 @@
-interface OperatingHours {
+export interface OperatingHours {
   day: number;      // 0 = domingo
   open: string;     // "18:00"
   close: string;   // "23:30"
   enabled: boolean;
 }
 
-export function getNextOpeningMessage(hours: OperatingHours[]): string {
+export function isPizzeriaOpen(
+  operatingHours: OperatingHours[] = []
+): boolean {
   const now = new Date();
-  const today = now.getDay();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentDay = now.getDay();
+  const currentTime = now.getHours() * 60 + now.getMinutes();
 
-  const sorted = [...hours].filter(h => h.enabled);
+  const today = operatingHours.find(d => d.day === currentDay);
 
-  // 1️⃣ Ainda abre hoje?
-  const todaySchedule = sorted.find(h => h.day === today);
-  if (todaySchedule) {
-    const [h, m] = todaySchedule.open.split(':').map(Number);
-    const openMinutes = h * 60 + m;
+  if (!today || !today.enabled) return false;
 
-    if (currentMinutes < openMinutes) {
-      return `Abrimos hoje às ${todaySchedule.open}`;
-    }
-  }
+  const [openH, openM] = today.open.split(':').map(Number);
+  const [closeH, closeM] = today.close.split(':').map(Number);
 
-  // 2️⃣ Próximo dia disponível
-  for (let i = 1; i <= 7; i++) {
-    const nextDay = (today + i) % 7;
-    const next = sorted.find(h => h.day === nextDay);
-    if (next) {
-      const days = [
-        'domingo',
-        'segunda',
-        'terça',
-        'quarta',
-        'quinta',
-        'sexta',
-        'sábado',
-      ];
-      return `Abrimos ${days[nextDay]} às ${next.open}`;
-    }
-  }
+  const openTime = openH * 60 + openM;
+  const closeTime = closeH * 60 + closeM;
 
-  return 'Confira nossos horários de funcionamento';
+  return currentTime >= openTime && currentTime <= closeTime;
+}
+
+export function getNextOpeningMessage(): string {
+  return 'Confira nossos horários de funcionamento.';
 }
