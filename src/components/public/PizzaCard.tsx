@@ -105,16 +105,11 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
           </div>
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {flavor.ingredients.slice(0, 4).map((ing, i) => (
+              {flavor.ingredients.map((ing, i) => (
                 <Badge key={i} variant="secondary" className="text-xs">
                   {ing}
                 </Badge>
               ))}
-              {flavor.ingredients.length > 4 && (
-                <Badge variant="outline" className="text-xs">
-                  +{flavor.ingredients.length - 4}
-                </Badge>
-              )}
             </div>
             <Button className="w-full" variant="default">
               <Plus className="w-4 h-4 mr-2" />
