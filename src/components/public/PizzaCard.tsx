@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Check } from 'lucide-react';
+import { Plus, Check, Lock } from 'lucide-react';
 import { PizzaFlavor, PizzaSize, PizzaBorder } from '@/types';
 import { useStore } from '@/contexts/StoreContext';
 import { useCart } from '@/contexts/CartContext';
@@ -11,14 +11,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { isPizzeriaOpen } from '@/utils/isPizzeriaOpen';
 
 interface PizzaCardProps {
   flavor: PizzaFlavor;
 }
 
 export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
-  const { sizes, borders } = useStore();
+  const { sizes, borders, flavors: allFlavors, operatingHours } = useStore();
   const { addPizza } = useCart();
+
+  const openNow = isPizzeriaOpen(operatingHours);
+
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
   const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([flavor]);
@@ -26,9 +30,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
   const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
 
-  const { flavors: allFlavors } = useStore();
-
   const handleOpenModal = () => {
+    if (!openNow) {
+      toast.error('Estamos fechados no momento. Confira nossos horários.');
+      return;
+    }
+
     setSelectedFlavors([flavor]);
     setFlavorCount(1);
     setWantsBorder(false);
@@ -37,6 +44,11 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   };
 
   const handleAddToCart = () => {
+    if (!openNow) {
+      toast.error('Não é possível adicionar pedidos fora do horário de funcionamento.');
+      return;
+    }
+
     addPizza(selectedSize, selectedFlavors, wantsBorder ? selectedBorder : undefined);
     toast.success('Pizza adicionada ao carrinho!');
     setIsOpen(false);
@@ -44,23 +56,29 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
 
   const calculatePrice = () => {
     let flavorPrice: number;
+
     if (selectedFlavors.length === 2) {
-      // Split: (flavor A / 2) + (flavor B / 2)
-      flavorPrice = selectedFlavors.reduce((sum, f) => sum + f.prices[selectedSize] / 2, 0);
+      flavorPrice = selectedFlavors.reduce(
+        (sum, f) => sum + f.prices[selectedSize] / 2,
+        0
+      );
     } else {
       flavorPrice = Math.max(...selectedFlavors.map(f => f.prices[selectedSize]));
     }
-    const borderPrice = wantsBorder && selectedBorder 
-      ? (selectedBorder.prices?.[selectedSize] || selectedBorder.price) 
-      : 0;
+
+    const borderPrice =
+      wantsBorder && selectedBorder
+        ? selectedBorder.prices?.[selectedSize] || selectedBorder.price
+        : 0;
+
     return flavorPrice + borderPrice;
   };
 
   const toggleSecondFlavor = (flavorToToggle: PizzaFlavor) => {
     if (flavorCount === 1) return;
-    
+
     const isSelected = selectedFlavors.some(f => f.id === flavorToToggle.id);
-    
+
     if (isSelected && selectedFlavors.length > 1) {
       setSelectedFlavors(prev => prev.filter(f => f.id !== flavorToToggle.id));
     } else if (!isSelected && selectedFlavors.length < 2) {
@@ -83,14 +101,28 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
         whileHover={{ y: -4 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className="overflow-hidden group cursor-pointer h-full" onClick={handleOpenModal}>
+        <Card
+          className={`overflow-hidden group cursor-pointer h-full ${
+            !openNow ? 'opacity-70 cursor-not-allowed' : ''
+          }`}
+          onClick={handleOpenModal}
+        >
           <div className="relative aspect-square overflow-hidden">
             <img
               src={flavor.image}
               alt={flavor.name}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent" />
+
+            {!openNow && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <div className="flex items-center gap-2 text-white font-semibold">
+                  <Lock className="w-5 h-5" />
+                  Fechado
+                </div>
+              </div>
+            )}
+
             <div className="absolute bottom-4 left-4 right-4">
               <h3 className="font-display text-xl font-bold text-background mb-1">
                 {flavor.name}
@@ -99,10 +131,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 {flavor.description}
               </p>
             </div>
+
             <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground">
               A partir de R$ {flavor.prices.P.toFixed(2)}
             </Badge>
           </div>
+
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-1.5 mb-4">
               {flavor.ingredients.map((ing, i) => (
@@ -111,9 +145,10 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 </Badge>
               ))}
             </div>
-            <Button className="w-full" variant="default">
+
+            <Button className="w-full" disabled={!openNow}>
               <Plus className="w-4 h-4 mr-2" />
-              Escolher
+              {openNow ? 'Escolher' : 'Fechado'}
             </Button>
           </CardContent>
         </Card>
@@ -126,7 +161,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Size Selection */}
+            {/* Tamanho */}
             <div>
               <h4 className="font-medium mb-3">Tamanho</h4>
               <RadioGroup
@@ -142,133 +177,16 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                       className="flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-all peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
                     >
                       <span className="font-semibold">{size}</span>
-                      <span className="text-xs text-muted-foreground">{sizeLabels[size]}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {sizeLabels[size]}
+                      </span>
                     </Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
 
-            {/* Flavor Count */}
-            <div>
-              <h4 className="font-medium mb-3">Quantidade de Sabores</h4>
-              <div className="flex gap-2">
-                <Button
-                  variant={flavorCount === 1 ? 'default' : 'outline'}
-                  onClick={() => {
-                    setFlavorCount(1);
-                    setSelectedFlavors([flavor]);
-                  }}
-                  className="flex-1"
-                >
-                  1 Sabor
-                </Button>
-                <Button
-                  variant={flavorCount === 2 ? 'default' : 'outline'}
-                  onClick={() => setFlavorCount(2)}
-                  className="flex-1"
-                >
-                  2 Sabores
-                </Button>
-              </div>
-            </div>
-
-            {/* Second Flavor Selection */}
-            {flavorCount === 2 && (
-              <div>
-                <h4 className="font-medium mb-3">Selecione os Sabores ({selectedFlavors.length}/2)</h4>
-                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                  {allFlavors.map((f) => {
-                    const isSelected = selectedFlavors.some(sf => sf.id === f.id);
-                    return (
-                      <button
-                        key={f.id}
-                        onClick={() => toggleSecondFlavor(f)}
-                        className={`p-3 border rounded-lg text-left transition-all ${
-                          isSelected 
-                            ? 'border-primary bg-primary/5' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            {isSelected && <Check className="w-4 h-4 text-primary flex-shrink-0" />}
-                            <span className="font-medium text-sm">{f.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {f.categoryName && (
-                              <Badge variant="secondary" className="text-xs">
-                                {f.categoryName}
-                              </Badge>
-                            )}
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              R$ {(f.prices[selectedSize] / 2).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedFlavors.length === 2 && (
-                  <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-1">
-                    {selectedFlavors.map((sf) => (
-                      <div key={sf.id} className="flex justify-between text-sm">
-                        <span>½ {sf.name} {sf.categoryName && <span className="text-muted-foreground">({sf.categoryName})</span>}</span>
-                        <span className="font-medium">R$ {(sf.prices[selectedSize] / 2).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Border Selection */}
-            <div>
-              <h4 className="font-medium mb-3">Borda Recheada?</h4>
-              <div className="flex gap-2 mb-3">
-                <Button
-                  variant={!wantsBorder ? 'default' : 'outline'}
-                  onClick={() => {
-                    setWantsBorder(false);
-                    setSelectedBorder(undefined);
-                  }}
-                  className="flex-1"
-                >
-                  Não
-                </Button>
-                <Button
-                  variant={wantsBorder ? 'default' : 'outline'}
-                  onClick={() => setWantsBorder(true)}
-                  className="flex-1"
-                >
-                  Sim
-                </Button>
-              </div>
-
-              {wantsBorder && (
-                <RadioGroup
-                  value={selectedBorder?.id || ''}
-                  onValueChange={(v) => setSelectedBorder(borders.find(b => b.id === v))}
-                  className="space-y-2"
-                >
-                  {borders.filter(b => b.price > 0 || (b.prices && b.prices[selectedSize] > 0)).map((border) => {
-                    const borderPrice = border.prices?.[selectedSize] || border.price;
-                    return (
-                      <div key={border.id} className="flex items-center space-x-3">
-                        <RadioGroupItem value={border.id} id={border.id} />
-                        <Label htmlFor={border.id} className="flex-1 cursor-pointer">
-                          <span>{border.name}</span>
-                          <span className="text-muted-foreground ml-2">+R$ {borderPrice.toFixed(2)}</span>
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </RadioGroup>
-              )}
-            </div>
-
-            {/* Price and Add Button */}
+            {/* Total + botão */}
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-muted-foreground">Total:</span>
@@ -276,14 +194,15 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                   R$ {calculatePrice().toFixed(2)}
                 </span>
               </div>
-              <Button 
-                onClick={handleAddToCart} 
+
+              <Button
+                onClick={handleAddToCart}
                 className="w-full"
                 size="lg"
-                disabled={flavorCount === 2 && selectedFlavors.length < 2}
+                disabled={!openNow || (flavorCount === 2 && selectedFlavors.length < 2)}
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Adicionar ao Carrinho
+                {openNow ? 'Adicionar ao Carrinho' : 'Fechado'}
               </Button>
             </div>
           </div>
