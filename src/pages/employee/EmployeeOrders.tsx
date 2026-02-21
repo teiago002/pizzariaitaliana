@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, XCircle, Truck, Eye, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Truck, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Order, OrderStatus, CartItemPizza } from '@/types';
+import { OrderStatus } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   PENDING: { label: 'Pendente', color: 'bg-yellow-500', icon: Clock },
@@ -22,25 +21,35 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
 const EmployeeOrders: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   const fetchOrders = async () => {
-    const { data, error } = await supabase
+    // Only show local orders created by this employee
+    let query = supabase
       .from('orders')
       .select('*')
+      .eq('order_type', 'local')
       .order('created_at', { ascending: false });
 
+    if (user?.id) {
+      query = query.eq('created_by', user.id);
+    }
+
+    const { data, error } = await query;
     if (!error && data) setOrders(data);
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchOrders();
-    const channel = supabase
-      .channel('employee-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    if (user) {
+      fetchOrders();
+      const channel = supabase
+        .channel('employee-orders')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+  }, [user]);
 
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase.from('orders').update({ status: status as any }).eq('id', id);
@@ -49,8 +58,7 @@ const EmployeeOrders: React.FC = () => {
   };
 
   const activeOrders = orders.filter(o => !['DELIVERED', 'CANCELLED'].includes(o.status));
-  const localOrders = activeOrders.filter(o => o.order_type === 'local');
-  const deliveryOrders = activeOrders.filter(o => o.order_type === 'delivery');
+  const finishedOrders = orders.filter(o => ['DELIVERED', 'CANCELLED'].includes(o.status));
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
@@ -75,16 +83,18 @@ const EmployeeOrders: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-primary">R$ {Number(order.total).toFixed(2)}</span>
-                    <Select value={order.status} onValueChange={(v) => updateStatus(order.id, v)}>
-                      <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CONFIRMED">Confirmado</SelectItem>
-                        <SelectItem value="PREPARING">Preparando</SelectItem>
-                        <SelectItem value="READY">Pronto</SelectItem>
-                        <SelectItem value="DELIVERED">Entregue</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {!['DELIVERED', 'CANCELLED'].includes(order.status) && (
+                      <Select value={order.status} onValueChange={(v) => updateStatus(order.id, v)}>
+                        <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CONFIRMED">Confirmado</SelectItem>
+                          <SelectItem value="PREPARING">Preparando</SelectItem>
+                          <SelectItem value="READY">Pronto</SelectItem>
+                          <SelectItem value="DELIVERED">Entregue</SelectItem>
+                          <SelectItem value="CANCELLED">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -93,23 +103,29 @@ const EmployeeOrders: React.FC = () => {
         })}
       </div>
     ) : (
-      <p className="text-center text-muted-foreground py-8">Nenhum pedido ativo</p>
+      <p className="text-center text-muted-foreground py-8">Nenhum pedido</p>
     )
   );
 
   return (
-    <div className="space-y-4">
-      <h1 className="font-display text-xl font-bold">Pedidos Ativos</h1>
-      <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">Todos ({activeOrders.length})</TabsTrigger>
-          <TabsTrigger value="local">Local ({localOrders.length})</TabsTrigger>
-          <TabsTrigger value="delivery">Delivery ({deliveryOrders.length})</TabsTrigger>
-        </TabsList>
-        <TabsContent value="all"><OrderList list={activeOrders} /></TabsContent>
-        <TabsContent value="local"><OrderList list={localOrders} /></TabsContent>
-        <TabsContent value="delivery"><OrderList list={deliveryOrders} /></TabsContent>
-      </Tabs>
+    <div className="space-y-6">
+      <h1 className="font-display text-xl font-bold">Meus Pedidos Locais</h1>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Clock className="w-4 h-4" /> Ativos ({activeOrders.length})
+        </h2>
+        <OrderList list={activeOrders} />
+      </div>
+
+      {finishedOrders.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" /> Finalizados ({finishedOrders.length})
+          </h2>
+          <OrderList list={finishedOrders} />
+        </div>
+      )}
     </div>
   );
 };

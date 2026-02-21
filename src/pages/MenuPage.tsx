@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Search, Loader2, X } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
 import { PizzaCard } from '@/components/public/PizzaCard';
-import { ProductCard } from '@/components/public/ProductCard';
+import { ProductCard, DrinkSizeSelector } from '@/components/public/ProductCard';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +70,9 @@ const MenuPage: React.FC = () => {
     return flavorsByCategory.filter(g => g.categoryId === selectedCategory || (!g.categoryId && selectedCategory === 'other'));
   }, [flavorsByCategory, selectedCategory]);
 
-  const productCategories = [...new Set(products.map(p => p.category))];
+  // Group products by category for drinks tab
+  const productCategories = useMemo(() => [...new Set(products.map(p => p.category))], [products]);
+
   const isLoading = isLoadingFlavors || isLoadingProducts;
 
   return (
@@ -204,18 +206,7 @@ const MenuPage: React.FC = () => {
                     <h3 className="font-display text-xl font-semibold text-foreground mb-4 border-l-4 border-secondary pl-4">
                       {category}
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {categoryProducts.map((product, index) => (
-                        <motion.div
-                          key={product.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                        >
-                          <ProductCard product={product} />
-                        </motion.div>
-                      ))}
-                    </div>
+                    <DrinkSizeSelector products={categoryProducts} />
                   </div>
                 );
               })}
