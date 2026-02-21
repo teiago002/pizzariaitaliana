@@ -28,12 +28,10 @@ export const Header: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            {settings.isOpen ? (
-              <Badge variant="default" className="bg-secondary text-secondary-foreground">
-                Aberto
-              </Badge>
+            {isPizzeriaOpen(operatingHours) ? (
+              <span>Aberta</span>
             ) : (
-              <Badge variant="destructive">Fechado</Badge>
+              <span>Fechada</span>
             )}
           </div>
         </div>

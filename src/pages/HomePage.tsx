@@ -38,19 +38,14 @@ const HomePage: React.FC = () => {
               transition={{ delay: 0.2 }}
               className="mb-6"
             >
-              {settings.isOpen ? (
-                <Badge className="bg-secondary text-secondary-foreground px-4 py-2 text-sm">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Estamos Abertos
+              {isPizzeriaOpen(settings.operatingHours) ? (
+                <Badge variant="default" className="bg-secondary text-secondary-foreground">
+                  Aberta
                 </Badge>
               ) : (
-                <Badge variant="destructive" className="px-4 py-2 text-sm">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Fechado no momento
-                </Badge>
+                <Badge variant="destructive">Fechada</Badge>
               )}
             </motion.div>
-
             <h1 className="font-display text-4xl md:text-6xl lg:text-7xl font-bold text-background mb-4 leading-tight">
               {settings.name}
             </h1>

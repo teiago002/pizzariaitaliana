@@ -88,21 +88,6 @@ const AdminSettings: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div>
-                <Label className="text-base font-semibold">Status da Pizzaria</Label>
-                <p className="text-sm text-muted-foreground">
-                  {formData.isOpen ? 'Aberta para pedidos' : 'Fechada no momento'}
-                </p>
-              </div>
-              <Switch
-                checked={formData.isOpen}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isOpen: checked }))}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* PIX Settings */}
         <Card>
           <CardHeader>

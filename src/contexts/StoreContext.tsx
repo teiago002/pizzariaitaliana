@@ -106,7 +106,6 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const settings: PizzeriaSettings = settingsData ? {
     name: settingsData.name,
     logo: settingsData.logo_url || undefined,
-    isOpen: settingsData.is_open,
     whatsapp: settingsData.whatsapp,
     address: settingsData.address,
     primaryColor: settingsData.primary_color,
@@ -114,7 +113,6 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
     accentColor: settingsData.accent_color,
   } : {
     name: 'Pizzaria Italiana',
-    isOpen: true,
     whatsapp: '',
     address: '',
     primaryColor: '#c41e3a',

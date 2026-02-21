@@ -7,7 +7,6 @@ interface DbSettings {
   id: string;
   name: string;
   logo_url: string | null;
-  is_open: boolean;
   whatsapp: string;
   address: string;
   primary_color: string;
@@ -23,7 +22,6 @@ const mapDbToSettings = (db: DbSettings): PizzeriaSettings & { id: string; pixKe
   id: db.id,
   name: db.name,
   logo: db.logo_url || undefined,
-  isOpen: db.is_open,
   whatsapp: db.whatsapp,
   address: db.address,
   primaryColor: db.primary_color,
@@ -36,7 +34,6 @@ const mapDbToSettings = (db: DbSettings): PizzeriaSettings & { id: string; pixKe
 export function useSettings() {
   const [settings, setSettings] = useState<PizzeriaSettings & { id?: string; pixKey?: string; pixName?: string }>({
     name: 'Pizzaria Italiana',
-    isOpen: true,
     whatsapp: '(89) 98134-7052',
     address: 'Av. Manoel Bezerra | Nº 189 | Centro',
     primaryColor: '#C41E3A',
@@ -74,7 +71,6 @@ export function useSettings() {
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.logo !== undefined) dbUpdates.logo_url = updates.logo;
-      if (updates.isOpen !== undefined) dbUpdates.is_open = updates.isOpen;
       if (updates.whatsapp !== undefined) dbUpdates.whatsapp = updates.whatsapp;
       if (updates.address !== undefined) dbUpdates.address = updates.address;
       if (updates.primaryColor !== undefined) dbUpdates.primary_color = updates.primaryColor;

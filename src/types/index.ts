@@ -108,7 +108,6 @@ export interface Order {
 export interface PizzeriaSettings {
   name: string;
   logo?: string;
-  isOpen: boolean;
   whatsapp: string;
   address: string;
   primaryColor: string;
