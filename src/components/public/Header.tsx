@@ -66,7 +66,7 @@ export const Header: React.FC = () => {
                 {settings.name}
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Sabor autêntico italiano
+                Sabor autêntico
               </p>
             </div>
           </Link>

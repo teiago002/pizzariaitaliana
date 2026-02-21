@@ -19,7 +19,7 @@ export const Footer: React.FC = () => {
               <h3 className="font-display text-xl font-bold">{settings.name}</h3>
             </div>
             <p className="text-muted-foreground text-sm">
-              Sabor autêntico italiano desde 2020. Ingredientes frescos e receitas tradicionais.
+              Sabor autêntico desde 2015. Ingredientes exclusivos e receitas únicas!
             </p>
           </div>
 
