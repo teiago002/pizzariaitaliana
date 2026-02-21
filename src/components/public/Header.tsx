@@ -6,15 +6,19 @@ import { useCart } from '@/contexts/CartContext';
 import { useStore } from '@/contexts/StoreContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { isPizzeriaOpen } from '@/utils/isPizzeriaOpen';
 
 export const Header: React.FC = () => {
   const { itemCount } = useCart();
-  const { settings } = useStore();
+  const { settings, operatingHours } = useStore();
+
+  const openNow = isPizzeriaOpen(operatingHours);
 
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container mx-auto px-4">
-        {/* Top bar with info */}
+
+        {/* Top bar (desktop) */}
         <div className="hidden md:flex items-center justify-between py-2 text-sm border-b border-border/50">
           <div className="flex items-center gap-6 text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -26,13 +30,12 @@ export const Header: React.FC = () => {
               {settings.whatsapp}
             </span>
           </div>
+
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            {isPizzeriaOpen(operatingHours) ? (
-              <span>Aberta</span>
-            ) : (
-              <span>Fechada</span>
-            )}
+            <span className={openNow ? 'text-green-600' : 'text-red-600'}>
+              {openNow ? 'Aberta' : 'Fechada'}
+            </span>
           </div>
         </div>
 
@@ -44,21 +47,22 @@ export const Header: React.FC = () => {
               className="w-12 h-12 rounded-full bg-primary flex items-center justify-center overflow-hidden"
             >
               {settings.logo ? (
-                <img 
-                  src={settings.logo} 
+                <img
+                  src={settings.logo}
                   alt={`Logo ${settings.name}`}
                   className="w-full h-full object-cover"
                   loading="lazy"
                   onError={(e) => {
-                    // Fallback to emoji if image fails to load
                     e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement!.innerHTML = '<span class="text-xl">🍕</span>';
+                    e.currentTarget.parentElement!.innerHTML =
+                      '<span class="text-xl">🍕</span>';
                   }}
                 />
               ) : (
                 <span className="text-xl">🍕</span>
               )}
             </motion.div>
+
             <div>
               <h1 className="font-display text-xl md:text-2xl font-bold text-foreground">
                 {settings.name}
@@ -75,10 +79,12 @@ export const Header: React.FC = () => {
                 Cardápio
               </Button>
             </Link>
+
             <Link to="/carrinho">
               <Button variant="outline" size="sm" className="relative">
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Carrinho</span>
+
                 {itemCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
@@ -99,12 +105,15 @@ export const Header: React.FC = () => {
             <MapPin className="w-3 h-3" />
             {settings.address.split('|')[0]}
           </span>
-          {settings.isOpen ? (
-            <Badge variant="default" className="bg-secondary text-secondary-foreground text-xs">
+
+          {openNow ? (
+            <Badge className="bg-secondary text-secondary-foreground text-xs">
               Aberto
             </Badge>
           ) : (
-            <Badge variant="destructive" className="text-xs">Fechado</Badge>
+            <Badge variant="destructive" className="text-xs">
+              Fechado
+            </Badge>
           )}
         </div>
       </div>
