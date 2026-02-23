@@ -1,9 +1,27 @@
-import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
-import { PizzeriaSettings, PizzaFlavor, PizzaBorder, PizzaSizeOption, Product, Order } from '@/types';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { PizzeriaSettings, PizzaFlavor, PizzaBorder, PizzaSizeOption, Product } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
-// Default pizza sizes
+/* -----------------------------
+   Tipos do banco (reais)
+-------------------------------- */
+
+type SettingsRow = {
+  name: string;
+  logo_url: string | null;
+  whatsapp: string;
+  address: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  is_open: boolean;
+};
+
+/* -----------------------------
+   Default pizza sizes
+-------------------------------- */
+
 const defaultSizes: PizzaSizeOption[] = [
   { id: 'size-p', name: 'Pequena', size: 'P', price: 0 },
   { id: 'size-m', name: 'Média', size: 'M', price: 0 },
@@ -11,20 +29,29 @@ const defaultSizes: PizzaSizeOption[] = [
   { id: 'size-gg', name: 'Gigante', size: 'GG', price: 0 },
 ];
 
+/* -----------------------------
+   Context
+-------------------------------- */
+
 interface StoreContextType {
   settings: PizzeriaSettings;
   isLoadingSettings: boolean;
+
   flavors: PizzaFlavor[];
   isLoadingFlavors: boolean;
+
   borders: PizzaBorder[];
   isLoadingBorders: boolean;
+
   sizes: PizzaSizeOption[];
+
   products: Product[];
   isLoadingProducts: boolean;
-  refetchFlavors: () => void;
-  refetchProducts: () => void;
-  refetchBorders: () => void;
+
   refetchSettings: () => void;
+  refetchFlavors: () => void;
+  refetchBorders: () => void;
+  refetchProducts: () => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -37,27 +64,48 @@ export const useStore = () => {
   return context;
 };
 
+/* -----------------------------
+   Provider
+-------------------------------- */
+
 interface StoreProviderProps {
   children: ReactNode;
 }
 
 export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
-  // Fetch settings from database
-  const { data: settingsData, isLoading: isLoadingSettings, refetch: refetchSettings } = useQuery({
+  /* -------- SETTINGS -------- */
+  const {
+    data: settingsData,
+    isLoading: isLoadingSettings,
+    refetch: refetchSettings,
+  } = useQuery<SettingsRow | null>({
     queryKey: ['pizzeria-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pizzeria_settings')
-        .select('*')
+        .select(`
+          name,
+          logo_url,
+          whatsapp,
+          address,
+          primary_color,
+          secondary_color,
+          accent_color,
+          is_open
+        `)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch pizza flavors from database with category info
-  const { data: flavorsData, isLoading: isLoadingFlavors, refetch: refetchFlavors } = useQuery({
+  /* -------- FLAVORS -------- */
+  const {
+    data: flavorsData,
+    isLoading: isLoadingFlavors,
+    refetch: refetchFlavors,
+  } = useQuery({
     queryKey: ['pizza-flavors'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -65,14 +113,18 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
         .select('*, pizza_categories(id, name)')
         .eq('available', true)
         .order('name');
-      
+
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch pizza borders from database
-  const { data: bordersData, isLoading: isLoadingBorders, refetch: refetchBorders } = useQuery({
+  /* -------- BORDERS -------- */
+  const {
+    data: bordersData,
+    isLoading: isLoadingBorders,
+    refetch: refetchBorders,
+  } = useQuery({
     queryKey: ['pizza-borders'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -80,14 +132,18 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
         .select('*')
         .eq('available', true)
         .order('price');
-      
+
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch products from database
-  const { data: productsData, isLoading: isLoadingProducts, refetch: refetchProducts } = useQuery({
+  /* -------- PRODUCTS -------- */
+  const {
+    data: productsData,
+    isLoading: isLoadingProducts,
+    refetch: refetchProducts,
+  } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -96,67 +152,77 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
         .eq('available', true)
         .order('category', { ascending: true })
         .order('name', { ascending: true });
-      
+
       if (error) throw error;
       return data;
     },
   });
 
-  // Transform database data to app types
-  const settings: PizzeriaSettings = settingsData ? {
-    name: settingsData.name,
-    logo: settingsData.logo_url || undefined,
-    whatsapp: settingsData.whatsapp,
-    address: settingsData.address,
-    primaryColor: settingsData.primary_color,
-    secondaryColor: settingsData.secondary_color,
-    accentColor: settingsData.accent_color,
-  } : {
-    name: 'Pizzaria Italiana',
-    whatsapp: '',
-    address: '',
-    primaryColor: '#c41e3a',
-    secondaryColor: '#228b22',
-    accentColor: '#ffffff',
-  };
+  /* -----------------------------
+     Transformações
+  -------------------------------- */
 
-  const flavors: PizzaFlavor[] = flavorsData?.map(f => ({
-    id: f.id,
-    name: f.name,
-    description: f.description || '',
-    ingredients: f.ingredients || [],
-    image: f.image_url || undefined,
-    categoryId: f.category_id || undefined,
-    categoryName: (f as any).pizza_categories?.name || undefined,
-    prices: {
-      P: Number(f.price_p),
-      M: Number(f.price_m),
-      G: Number(f.price_g),
-      GG: Number(f.price_gg),
-    },
-  })) || [];
+  const settings: PizzeriaSettings = settingsData
+    ? {
+        name: settingsData.name,
+        logo: settingsData.logo_url || undefined,
+        whatsapp: settingsData.whatsapp,
+        address: settingsData.address,
+        primaryColor: settingsData.primary_color,
+        secondaryColor: settingsData.secondary_color,
+        accentColor: settingsData.accent_color,
+        isOpen: settingsData.is_open,
+      }
+    : {
+        name: 'Pizzaria Italiana',
+        whatsapp: '',
+        address: '',
+        primaryColor: '#c41e3a',
+        secondaryColor: '#228b22',
+        accentColor: '#ffffff',
+        isOpen: false,
+      };
 
-  const borders: PizzaBorder[] = bordersData?.map(b => ({
-    id: b.id,
-    name: b.name,
-    price: Number(b.price),
-    prices: {
-      P: Number(b.price_p || b.price * 0.6),
-      M: Number(b.price_m || b.price * 0.8),
-      G: Number(b.price_g || b.price),
-      GG: Number(b.price_gg || b.price * 1.2),
-    },
-  })) || [];
+  const flavors: PizzaFlavor[] =
+    flavorsData?.map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      description: f.description || '',
+      ingredients: f.ingredients || [],
+      image: f.image_url || undefined,
+      categoryId: f.category_id || undefined,
+      categoryName: f.pizza_categories?.name,
+      prices: {
+        P: Number(f.price_p),
+        M: Number(f.price_m),
+        G: Number(f.price_g),
+        GG: Number(f.price_gg),
+      },
+    })) || [];
 
-  const products: Product[] = productsData?.map(p => ({
-    id: p.id,
-    name: p.name,
-    description: p.description || '',
-    price: Number(p.price),
-    category: p.category,
-    image: p.image_url || undefined,
-    available: p.available,
-  })) || [];
+  const borders: PizzaBorder[] =
+    bordersData?.map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      price: Number(b.price),
+      prices: {
+        P: Number(b.price_p || b.price * 0.6),
+        M: Number(b.price_m || b.price * 0.8),
+        G: Number(b.price_g || b.price),
+        GG: Number(b.price_gg || b.price * 1.2),
+      },
+    })) || [];
+
+  const products: Product[] =
+    productsData?.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description || '',
+      price: Number(p.price),
+      category: p.category,
+      image: p.image_url || undefined,
+      available: p.available,
+    })) || [];
 
   return (
     <StoreContext.Provider
@@ -170,10 +236,10 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
         sizes: defaultSizes,
         products,
         isLoadingProducts,
-        refetchFlavors,
-        refetchProducts,
-        refetchBorders,
         refetchSettings,
+        refetchFlavors,
+        refetchBorders,
+        refetchProducts,
       }}
     >
       {children}

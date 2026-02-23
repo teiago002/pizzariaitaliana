@@ -11,18 +11,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { isPizzeriaOpen, getNextOpeningMessage } from '@/utils/isPizzeriaOpen';
 
 interface PizzaCardProps {
   flavor: PizzaFlavor;
 }
 
 export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
-  const { operatingHours } = useStore();
+  const { settings } = useStore();
   const { addPizza } = useCart();
 
-  const openNow = isPizzeriaOpen(operatingHours);
-  const closedMessage = getNextOpeningMessage(operatingHours);
+  const openNow = settings.isOpen;
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
@@ -31,7 +29,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
 
   const handleOpenModal = () => {
     if (!openNow) {
-      toast.error(closedMessage);
+      toast.error('Pedidos apenas no horário de funcionamento.');
       return;
     }
     setSelectedFlavors([flavor]);
@@ -97,8 +95,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
             {!openNow && (
               <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-center px-4">
                 <Lock className="w-6 h-6 text-white mb-2" />
-                <p className="text-white font-semibold text-lg">Estamos fechados</p>
-                <p className="text-white/80 text-sm mt-1">{closedMessage}</p>
+                <p className="text-white font-semibold text-lg">
+                  Estamos fechados
+                </p>
+                <p className="text-white/80 text-sm mt-1">
+                  Volte em breve para fazer seu pedido 🍕
+                </p>
               </div>
             )}
 
@@ -151,7 +153,11 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               >
                 {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
                   <div key={size}>
-                    <RadioGroupItem value={size} id={`size-${size}`} className="peer sr-only" />
+                    <RadioGroupItem
+                      value={size}
+                      id={`size-${size}`}
+                      className="peer sr-only"
+                    />
                     <Label
                       htmlFor={`size-${size}`}
                       className="flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"

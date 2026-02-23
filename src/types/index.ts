@@ -113,4 +113,5 @@ export interface PizzeriaSettings {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
+  isOpen: boolean;
 }
