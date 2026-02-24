@@ -1,13 +1,11 @@
 interface OperatingHours {
-  day: number;       // 0 (domingo) até 6 (sábado)
-  open: string;      // "18:00"
-  close: string;     // "23:00"
+  day: number;
+  open: string;
+  close: string;
   enabled: boolean;
 }
 
-export function isPizzeriaOpen(
-  operatingHours: OperatingHours[] = []
-): boolean {
+export function isPizzeriaOpen(operatingHours: OperatingHours[] = []): boolean {
   if (!Array.isArray(operatingHours) || operatingHours.length === 0) {
     return false;
   }
@@ -17,7 +15,7 @@ export function isPizzeriaOpen(
   const currentTime = now.getHours() * 60 + now.getMinutes();
 
   const today = operatingHours.find(
-    (d) => d.day === currentDay && d.enabled
+    day => day.day === currentDay && day.enabled
   );
 
   if (!today) return false;
@@ -31,12 +29,6 @@ export function isPizzeriaOpen(
   return currentTime >= openTime && currentTime <= closeTime;
 }
 
-export function getNextOpeningMessage(
-  operatingHours: OperatingHours[] = []
-): string {
-  if (!operatingHours.length) {
-    return 'Confira nossos horários de funcionamento.';
-  }
-
-  return 'Estamos fechados no momento. Confira nossos horários de funcionamento.';
+export function getNextOpeningMessage() {
+  return 'Confira nossos horários de funcionamento.';
 }

@@ -17,10 +17,13 @@ const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, total } = useCart();
   const { settings } = useStore();
-  const operatingHours = settings.operatingHours;
 
-  const openNow = isPizzeriaOpen(operatingHours);
-  const closedMessage = getNextOpeningMessage(operatingHours);
+  const operatingHours = settings.operatingHours;
+  const isManuallyOpen = settings.isOpen;
+
+  // 🔥 REGRA CORRETA
+  const openNow = isManuallyOpen && isPizzeriaOpen(operatingHours);
+  const closedMessage = getNextOpeningMessage();
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
@@ -29,6 +32,7 @@ const CheckoutPage: React.FC = () => {
     complement: '',
   });
 
+  // Redireciona se carrinho estiver vazio
   if (items.length === 0) {
     navigate('/carrinho');
     return null;
@@ -123,7 +127,86 @@ const CheckoutPage: React.FC = () => {
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* formulário permanece igual */}
+          {/* Dados do Cliente */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="w-5 h-5 text-primary" />
+                Seus Dados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="name">Nome Completo *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={customerInfo.name}
+                  onChange={handleChange}
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="phone">Telefone / WhatsApp *</Label>
+                <div className="relative mt-1.5">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={customerInfo.phone}
+                    onChange={handlePhoneChange}
+                    className="pl-10"
+                    maxLength={15}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Endereço */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <MapPin className="w-5 h-5 text-primary" />
+                Endereço de Entrega
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="address">Endereço Completo *</Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  value={customerInfo.address}
+                  onChange={handleChange}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="complement">Complemento</Label>
+                <Input
+                  id="complement"
+                  name="complement"
+                  value={customerInfo.complement}
+                  onChange={handleChange}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resumo */}
+          <Card className="bg-muted/30">
+            <CardContent className="p-4 flex justify-between items-center">
+              <span className="text-muted-foreground">
+                {items.length} {items.length === 1 ? 'item' : 'itens'}
+              </span>
+              <span className="text-xl font-bold text-primary">
+                R$ {total.toFixed(2)}
+              </span>
+            </CardContent>
+          </Card>
 
           <Button
             type="submit"
