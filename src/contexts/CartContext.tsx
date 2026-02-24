@@ -26,24 +26,40 @@ interface CartProviderProps {
   children: ReactNode;
 }
 
-const calculatePizzaPrice = (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder): number => {
-  let flavorPrice: number;
-  if (flavors.length === 2) {
-    // Split: (flavor A price / 2) + (flavor B price / 2)
-    flavorPrice = flavors.reduce((sum, f) => sum + f.prices[size] / 2, 0);
-  } else {
-    flavorPrice = Math.max(...flavors.map(f => f.prices[size]));
+const calculatePizzaPrice = (
+  size: PizzaSize,
+  flavors: PizzaFlavor[],
+  border?: PizzaBorder
+): number => {
+  let flavorPrice = 0;
+
+  if (flavors.length === 1) {
+    flavorPrice = flavors[0].prices[size];
   }
-  const borderPrice = border 
-    ? (border.prices?.[size] || border.price || 0) 
+
+  if (flavors.length === 2) {
+    flavorPrice =
+      flavors[0].prices[size] / 2 +
+      flavors[1].prices[size] / 2;
+  }
+
+  const borderPrice = border
+    ? border.prices?.[size] ?? border.price ?? 0
     : 0;
+
   return flavorPrice + borderPrice;
 };
 
 export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addPizza = useCallback((size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder) => {
+  const addPizza = useCallback(
+    (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder) => {
+      if (flavors.length === 0 || flavors.length > 2) {
+        console.error('Pizza deve ter 1 ou 2 sabores', flavors);
+        return;
+      }
+
     const unitPrice = calculatePizzaPrice(size, flavors, border);
     const newItem: CartItemPizza = {
       type: 'pizza',
@@ -54,8 +70,11 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       quantity: 1,
       unitPrice,
     };
+
     setItems(prev => [...prev, newItem]);
-  }, []);
+  },
+  []
+);
 
   const addProduct = useCallback((product: Product, quantity = 1) => {
     setItems(prev => {

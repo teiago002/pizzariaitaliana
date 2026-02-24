@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Lock } from 'lucide-react';
+import { Plus, Lock, Check } from 'lucide-react';
 import { PizzaFlavor, PizzaSize, PizzaBorder } from '@/types';
 import { useStore } from '@/contexts/StoreContext';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -17,48 +22,71 @@ interface PizzaCardProps {
 }
 
 export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
-  const { settings } = useStore();
+  const { settings, borders, flavors } = useStore();
   const { addPizza } = useCart();
 
   const openNow = settings.isOpen;
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
-  const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([flavor]);
+  const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
+  const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([
+    flavor,
+  ]);
   const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
+
+  /* =======================
+     AGRUPAR SABORES
+  ======================= */
+  const groupedFlavors = useMemo(() => {
+    const groups: Record<string, PizzaFlavor[]> = {};
+    flavors.forEach(f => {
+      const category = f.categoryName || 'Outros';
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(f);
+    });
+    return groups;
+  }, [flavors]);
 
   const handleOpenModal = () => {
     if (!openNow) {
       toast.error('Pedidos apenas no horário de funcionamento.');
       return;
     }
+    setSelectedSize('M');
+    setFlavorCount(1);
     setSelectedFlavors([flavor]);
     setSelectedBorder(undefined);
     setIsOpen(true);
   };
 
-  const handleAddToCart = () => {
-    if (!openNow) {
-      toast.error('Pedidos apenas no horário de funcionamento.');
-      return;
-    }
+  const toggleFlavor = (f: PizzaFlavor) => {
+    const exists = selectedFlavors.some(s => s.id === f.id);
 
-    addPizza(selectedSize, selectedFlavors, selectedBorder);
-    toast.success('Pizza adicionada ao carrinho 🍕');
-    setIsOpen(false);
+    if (exists) {
+      if (selectedFlavors.length === 1) return;
+      setSelectedFlavors(prev => prev.filter(s => s.id !== f.id));
+    } else {
+      if (selectedFlavors.length >= 2) return;
+      setSelectedFlavors(prev => [...prev, f]);
+    }
   };
 
   const calculatePrice = () => {
-    const flavorPrice =
-      selectedFlavors.length === 2
-        ? selectedFlavors.reduce(
-            (sum, f) => sum + f.prices[selectedSize] / 2,
-            0
-          )
-        : Math.max(...selectedFlavors.map(f => f.prices[selectedSize]));
+    let flavorPrice = 0;
+
+    if (selectedFlavors.length === 1) {
+      flavorPrice = selectedFlavors[0].prices[selectedSize];
+    }
+
+    if (selectedFlavors.length === 2) {
+      flavorPrice =
+        selectedFlavors[0].prices[selectedSize] / 2 +
+        selectedFlavors[1].prices[selectedSize] / 2;
+    }
 
     const borderPrice = selectedBorder
-      ? selectedBorder.prices?.[selectedSize] || selectedBorder.price
+      ? selectedBorder.prices?.[selectedSize] ?? selectedBorder.price
       : 0;
 
     return flavorPrice + borderPrice;
@@ -71,118 +99,186 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     GG: 'Gigante',
   };
 
+  const isInvalidTwoFlavors =
+    flavorCount === 2 && selectedFlavors.length < 2;
+
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: openNow ? -4 : 0 }}
-        transition={{ duration: 0.3 }}
-      >
+      {/* CARD */}
+      <motion.div whileHover={{ y: openNow ? -4 : 0 }}>
         <Card
           onClick={handleOpenModal}
-          className={`group overflow-hidden h-full transition ${
+          className={`group overflow-hidden ${
             openNow ? 'cursor-pointer' : 'opacity-70 cursor-not-allowed'
           }`}
         >
-          <div className="relative aspect-square overflow-hidden">
-            <img
-              src={flavor.image}
-              alt={flavor.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-
-            {!openNow && (
-              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-center px-4">
-                <Lock className="w-6 h-6 text-white mb-2" />
-                <p className="text-white font-semibold text-lg">
-                  Estamos fechados
-                </p>
-                <p className="text-white/80 text-sm mt-1">
-                  Volte em breve para fazer seu pedido 🍕
-                </p>
+          <div className="relative aspect-square">
+            {/* VISUAL MEIO A MEIO */}
+            {selectedFlavors.length === 2 ? (
+              <div className="flex h-full">
+                <img
+                  src={selectedFlavors[0].image}
+                  className="w-1/2 h-full object-cover"
+                />
+                <img
+                  src={selectedFlavors[1].image}
+                  className="w-1/2 h-full object-cover"
+                />
               </div>
+            ) : (
+              <img
+                src={flavor.image}
+                alt={flavor.name}
+                className="w-full h-full object-cover"
+              />
             )}
 
-            <div className="absolute bottom-4 left-4 right-4">
-              <h3 className="font-display text-xl font-bold text-background">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-4">
+              <h3 className="text-white font-bold text-xl">
                 {flavor.name}
               </h3>
-              <p className="text-background/80 text-sm line-clamp-1">
+              <p className="text-white/90 text-sm line-clamp-1">
                 {flavor.description}
               </p>
             </div>
 
-            <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground">
+            {!openNow && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                <Lock className="text-white w-6 h-6" />
+              </div>
+            )}
+
+            <Badge className="absolute top-4 right-4">
               A partir de R$ {flavor.prices.P.toFixed(2)}
             </Badge>
           </div>
 
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {flavor.ingredients.map((ing, i) => (
-                <Badge key={i} variant="secondary" className="text-xs">
-                  {ing}
-                </Badge>
-              ))}
-            </div>
-
-            <Button className="w-full" disabled={!openNow}>
+          <CardContent>
+            <Button className="w-full mt-4" disabled={!openNow}>
               <Plus className="w-4 h-4 mr-2" />
-              {openNow ? 'Escolher pizza' : 'Fechado'}
+              Escolher pizza
             </Button>
           </CardContent>
         </Card>
       </motion.div>
 
+      {/* MODAL */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">
+            <DialogTitle className="text-2xl font-bold">
               Monte sua pizza 🍕
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
-            <div>
-              <h4 className="font-medium mb-3">Tamanho</h4>
-              <RadioGroup
-                value={selectedSize}
-                onValueChange={v => setSelectedSize(v as PizzaSize)}
-                className="grid grid-cols-4 gap-2"
-              >
-                {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
-                  <div key={size}>
-                    <RadioGroupItem
-                      value={size}
-                      id={`size-${size}`}
-                      className="peer sr-only"
-                    />
-                    <Label
-                      htmlFor={`size-${size}`}
-                      className="flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
-                    >
-                      <span className="font-semibold">{size}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {sizeLabels[size]}
-                      </span>
-                    </Label>
+          {/* TAMANHO */}
+          <div>
+            <h4 className="font-medium mb-2">Tamanho</h4>
+            <RadioGroup
+              value={selectedSize}
+              onValueChange={v => setSelectedSize(v as PizzaSize)}
+              className="grid grid-cols-4 gap-2"
+            >
+              {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
+                <Label
+                  key={size}
+                  className="border rounded-lg p-3 text-center cursor-pointer"
+                >
+                  <RadioGroupItem value={size} className="sr-only" />
+                  <strong>{size}</strong>
+                  <span className="block text-xs text-muted-foreground">
+                    {sizeLabels[size]}
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          </div>
+
+          {/* SABORES */}
+          <div>
+            <h4 className="font-medium mb-2">Quantos sabores?</h4>
+            <RadioGroup
+              value={String(flavorCount)}
+              onValueChange={v => {
+                const count = Number(v) as 1 | 2;
+                setFlavorCount(count);
+                setSelectedFlavors([flavor]);
+              }}
+              className="flex gap-4"
+            >
+              <Label><RadioGroupItem value="1" /> 1 sabor</Label>
+              <Label><RadioGroupItem value="2" /> 2 sabores</Label>
+            </RadioGroup>
+
+            {flavorCount === 2 && (
+              <div className="mt-4 space-y-4">
+                {Object.entries(groupedFlavors).map(([category, items]) => (
+                  <div key={category}>
+                    <h5 className="font-semibold mb-2">{category}</h5>
+                    {items.map(f => {
+                      const selected = selectedFlavors.some(s => s.id === f.id);
+                      return (
+                        <div
+                          key={f.id}
+                          onClick={() => toggleFlavor(f)}
+                          className={`p-2 border rounded flex justify-between cursor-pointer ${
+                            selected ? 'border-primary bg-primary/5' : ''
+                          }`}
+                        >
+                          <span>{f.name}</span>
+                          {selected && <Check className="w-4 h-4" />}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
-              </RadioGroup>
-            </div>
-
-            <div className="pt-4 border-t">
-              <div className="flex justify-between mb-4">
-                <span className="text-muted-foreground">Total</span>
-                <span className="text-2xl font-bold text-primary">
-                  R$ {calculatePrice().toFixed(2)}
-                </span>
               </div>
+            )}
+          </div>
 
-              <Button onClick={handleAddToCart} className="w-full" size="lg">
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar ao carrinho
+          {/* BORDA */}
+          <div>
+            <h4 className="font-medium mb-2">Borda recheada</h4>
+            {borders.map(border => (
+              <div
+                key={border.id}
+                onClick={() =>
+                  setSelectedBorder(
+                    selectedBorder?.id === border.id ? undefined : border
+                  )
+                }
+                className={`p-2 border rounded cursor-pointer ${
+                  selectedBorder?.id === border.id
+                    ? 'border-primary bg-primary/5'
+                    : ''
+                }`}
+              >
+                {border.name} (+ R$ {border.prices[selectedSize].toFixed(2)})
+              </div>
+            ))}
+          </div>
+
+          {/* RESUMO */}
+          <div className="border-t pt-4">
+            {isInvalidTwoFlavors && (
+              <p className="text-sm text-red-500 mb-2">
+                Escolha mais 1 sabor
+              </p>
+            )}
+
+            <div className="flex justify-between items-center">
+              <strong className="text-xl">
+                R$ {calculatePrice().toFixed(2)}
+              </strong>
+              <Button
+                disabled={isInvalidTwoFlavors}
+                onClick={() => {
+                  addPizza(selectedSize, selectedFlavors, selectedBorder);
+                  toast.success('Pizza adicionada 🍕');
+                  setIsOpen(false);
+                }}
+              >
+                Adicionar
               </Button>
             </div>
           </div>
