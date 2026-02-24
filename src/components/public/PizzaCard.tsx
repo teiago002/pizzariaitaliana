@@ -30,14 +30,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
   const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
-  const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([
-    flavor,
-  ]);
+  const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([flavor]);
   const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
 
-  /* =======================
-     AGRUPAR SABORES
-  ======================= */
+  /* -------------------------
+     Agrupar sabores por categoria
+  -------------------------- */
   const groupedFlavors = useMemo(() => {
     const groups: Record<string, PizzaFlavor[]> = {};
     flavors.forEach(f => {
@@ -86,7 +84,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     }
 
     const borderPrice = selectedBorder
-      ? selectedBorder.prices?.[selectedSize] ?? selectedBorder.price
+      ? selectedBorder.prices[selectedSize]
       : 0;
 
     return flavorPrice + borderPrice;
@@ -108,38 +106,27 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
       <motion.div whileHover={{ y: openNow ? -4 : 0 }}>
         <Card
           onClick={handleOpenModal}
-          className={`group overflow-hidden ${
+          className={`group overflow-hidden transition ${
             openNow ? 'cursor-pointer' : 'opacity-70 cursor-not-allowed'
           }`}
         >
           <div className="relative aspect-square">
-            {/* VISUAL MEIO A MEIO */}
-            {selectedFlavors.length === 2 ? (
-              <div className="flex h-full">
-                <img
-                  src={selectedFlavors[0].image}
-                  className="w-1/2 h-full object-cover"
-                />
-                <img
-                  src={selectedFlavors[1].image}
-                  className="w-1/2 h-full object-cover"
-                />
-              </div>
-            ) : (
-              <img
-                src={flavor.image}
-                alt={flavor.name}
-                className="w-full h-full object-cover"
-              />
-            )}
+            <img
+              src={flavor.image}
+              alt={flavor.name}
+              className="w-full h-full object-cover"
+            />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex flex-col justify-end p-4">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex flex-col justify-end">
               <h3 className="text-white font-bold text-xl">
                 {flavor.name}
               </h3>
-              <p className="text-white/90 text-sm line-clamp-1">
-                {flavor.description}
-              </p>
+
+              {flavor.ingredients.length > 0 && (
+                <p className="text-white/80 text-xs line-clamp-2 mt-1">
+                  {flavor.ingredients.join(', ')}
+                </p>
+              )}
             </div>
 
             {!openNow && (
@@ -164,7 +151,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
 
       {/* MODAL */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto animate-scale-in">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               Monte sua pizza 🍕
@@ -172,7 +159,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
           </DialogHeader>
 
           {/* TAMANHO */}
-          <div>
+          <section>
             <h4 className="font-medium mb-2">Tamanho</h4>
             <RadioGroup
               value={selectedSize}
@@ -182,7 +169,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
                 <Label
                   key={size}
-                  className="border rounded-lg p-3 text-center cursor-pointer"
+                  className="border rounded-lg p-3 text-center cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"
                 >
                   <RadioGroupItem value={size} className="sr-only" />
                   <strong>{size}</strong>
@@ -192,11 +179,11 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 </Label>
               ))}
             </RadioGroup>
-          </div>
+          </section>
 
           {/* SABORES */}
-          <div>
-            <h4 className="font-medium mb-2">Quantos sabores?</h4>
+          <section>
+            <h4 className="font-medium mb-2">Sabores</h4>
             <RadioGroup
               value={String(flavorCount)}
               onValueChange={v => {
@@ -204,24 +191,24 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 setFlavorCount(count);
                 setSelectedFlavors([flavor]);
               }}
-              className="flex gap-4"
+              className="flex gap-4 mb-4"
             >
               <Label><RadioGroupItem value="1" /> 1 sabor</Label>
               <Label><RadioGroupItem value="2" /> 2 sabores</Label>
             </RadioGroup>
 
-            {flavorCount === 2 && (
-              <div className="mt-4 space-y-4">
-                {Object.entries(groupedFlavors).map(([category, items]) => (
-                  <div key={category}>
-                    <h5 className="font-semibold mb-2">{category}</h5>
+            {flavorCount === 2 &&
+              Object.entries(groupedFlavors).map(([category, items]) => (
+                <div key={category} className="mb-4">
+                  <h5 className="font-semibold mb-2">{category}</h5>
+                  <div className="space-y-2">
                     {items.map(f => {
                       const selected = selectedFlavors.some(s => s.id === f.id);
                       return (
                         <div
                           key={f.id}
                           onClick={() => toggleFlavor(f)}
-                          className={`p-2 border rounded flex justify-between cursor-pointer ${
+                          className={`p-2 border rounded flex justify-between cursor-pointer transition ${
                             selected ? 'border-primary bg-primary/5' : ''
                           }`}
                         >
@@ -231,38 +218,39 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                       );
                     })}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+          </section>
 
           {/* BORDA */}
-          <div>
+          <section>
             <h4 className="font-medium mb-2">Borda recheada</h4>
-            {borders.map(border => (
-              <div
-                key={border.id}
-                onClick={() =>
-                  setSelectedBorder(
-                    selectedBorder?.id === border.id ? undefined : border
-                  )
-                }
-                className={`p-2 border rounded cursor-pointer ${
-                  selectedBorder?.id === border.id
-                    ? 'border-primary bg-primary/5'
-                    : ''
-                }`}
-              >
-                {border.name} (+ R$ {border.prices[selectedSize].toFixed(2)})
-              </div>
-            ))}
-          </div>
+            <div className="space-y-2">
+              {borders.map(border => (
+                <div
+                  key={border.id}
+                  onClick={() =>
+                    setSelectedBorder(
+                      selectedBorder?.id === border.id ? undefined : border
+                    )
+                  }
+                  className={`p-2 border rounded cursor-pointer transition ${
+                    selectedBorder?.id === border.id
+                      ? 'border-primary bg-primary/5'
+                      : ''
+                  }`}
+                >
+                  {border.name} (+ R$ {border.prices[selectedSize].toFixed(2)})
+                </div>
+              ))}
+            </div>
+          </section>
 
           {/* RESUMO */}
-          <div className="border-t pt-4">
+          <section className="border-t pt-4">
             {isInvalidTwoFlavors && (
               <p className="text-sm text-red-500 mb-2">
-                Escolha mais 1 sabor
+                Escolha 2 sabores
               </p>
             )}
 
@@ -281,7 +269,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 Adicionar
               </Button>
             </div>
-          </div>
+          </section>
         </DialogContent>
       </Dialog>
     </>
