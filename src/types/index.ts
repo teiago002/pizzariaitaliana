@@ -105,6 +105,13 @@ export interface Order {
   updatedAt: Date;
 }
 
+export interface OperatingHours {
+  day: number;        // 0 (domingo) até 6 (sábado)
+  open: string;       // "18:00"
+  close: string;      // "23:00"
+  enabled: boolean;
+}
+
 export interface PizzeriaSettings {
   name: string;
   logo?: string;
@@ -114,4 +121,7 @@ export interface PizzeriaSettings {
   secondaryColor: string;
   accentColor: string;
   isOpen: boolean;
+
+  // ✅ ADICIONAR ISTO
+  operatingHours: OperatingHours[];
 }
