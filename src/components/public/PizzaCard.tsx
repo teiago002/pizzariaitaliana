@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Lock, Check } from 'lucide-react';
 import { PizzaFlavor, PizzaSize, PizzaBorder } from '@/types';
 import { useStore } from '@/contexts/StoreContext';
@@ -13,8 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 interface PizzaCardProps {
@@ -25,39 +23,26 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   const { settings, borders, flavors } = useStore();
   const { addPizza } = useCart();
 
-  const openNow = settings.isOpen;
-
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
   const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
   const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([flavor]);
-  const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
+  const [selectedBorder, setSelectedBorder] = useState<PizzaBorder>();
 
-  /* -------------------------
-     Agrupar sabores por categoria
-  -------------------------- */
+  const openNow = settings.isOpen;
+
+  /* ---------------- GROUP FLAVORS ---------------- */
   const groupedFlavors = useMemo(() => {
     const groups: Record<string, PizzaFlavor[]> = {};
     flavors.forEach(f => {
-      const category = f.categoryName || 'Outros';
-      if (!groups[category]) groups[category] = [];
-      groups[category].push(f);
+      const cat = f.categoryName || 'Outros';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(f);
     });
     return groups;
   }, [flavors]);
 
-  const handleOpenModal = () => {
-    if (!openNow) {
-      toast.error('Pedidos apenas no horário de funcionamento.');
-      return;
-    }
-    setSelectedSize('M');
-    setFlavorCount(1);
-    setSelectedFlavors([flavor]);
-    setSelectedBorder(undefined);
-    setIsOpen(true);
-  };
-
+  /* ---------------- HELPERS ---------------- */
   const toggleFlavor = (f: PizzaFlavor) => {
     const exists = selectedFlavors.some(s => s.id === f.id);
 
@@ -71,17 +56,13 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   };
 
   const calculatePrice = () => {
-    let flavorPrice = 0;
-
-    if (selectedFlavors.length === 1) {
-      flavorPrice = selectedFlavors[0].prices[selectedSize];
-    }
-
-    if (selectedFlavors.length === 2) {
-      flavorPrice =
-        selectedFlavors[0].prices[selectedSize] / 2 +
-        selectedFlavors[1].prices[selectedSize] / 2;
-    }
+    const flavorPrice =
+      selectedFlavors.length === 2
+        ? selectedFlavors.reduce(
+            (sum, f) => sum + f.prices[selectedSize] / 2,
+            0
+          )
+        : selectedFlavors[0].prices[selectedSize];
 
     const borderPrice = selectedBorder
       ? selectedBorder.prices[selectedSize]
@@ -97,17 +78,17 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     GG: 'Gigante',
   };
 
-  const isInvalidTwoFlavors =
+  const invalidTwoFlavors =
     flavorCount === 2 && selectedFlavors.length < 2;
 
+  /* ---------------- CARD ---------------- */
   return (
     <>
-      {/* CARD */}
       <motion.div whileHover={{ y: openNow ? -4 : 0 }}>
         <Card
-          onClick={handleOpenModal}
-          className={`group overflow-hidden transition ${
-            openNow ? 'cursor-pointer' : 'opacity-70 cursor-not-allowed'
+          onClick={() => openNow && setIsOpen(true)}
+          className={`overflow-hidden ${
+            openNow ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'
           }`}
         >
           <div className="relative aspect-square">
@@ -117,104 +98,140 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               className="w-full h-full object-cover"
             />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex flex-col justify-end">
               <h3 className="text-white font-bold text-xl">
                 {flavor.name}
               </h3>
-
-              {flavor.ingredients.length > 0 && (
-                <p className="text-white/80 text-xs line-clamp-2 mt-1">
-                  {flavor.ingredients.join(', ')}
-                </p>
-              )}
+              <p className="text-white/80 text-xs line-clamp-2">
+                {flavor.ingredients?.join(', ')}
+              </p>
             </div>
 
             {!openNow && (
               <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                <Lock className="text-white w-6 h-6" />
+                <Lock className="text-white" />
               </div>
             )}
 
-            <Badge className="absolute top-4 right-4">
+            <Badge className="absolute top-3 right-3">
               A partir de R$ {flavor.prices.P.toFixed(2)}
             </Badge>
           </div>
 
           <CardContent>
             <Button className="w-full mt-4" disabled={!openNow}>
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="mr-2 h-4 w-4" />
               Escolher pizza
             </Button>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* MODAL */}
+      {/* ---------------- MODAL ---------------- */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto animate-scale-in">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               Monte sua pizza 🍕
             </DialogTitle>
           </DialogHeader>
 
+          {/* PREVIEW */}
+          <motion.div className="h-48 rounded-xl overflow-hidden border mb-6">
+            {selectedFlavors.length === 2 ? (
+              <div className="flex h-full">
+                {selectedFlavors.map(f => (
+                  <motion.img
+                    key={f.id}
+                    src={f.image}
+                    className="w-1/2 h-full object-cover"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <motion.img
+                key={selectedFlavors[0].id}
+                src={selectedFlavors[0].image}
+                className="w-full h-full object-cover"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+              />
+            )}
+          </motion.div>
+
           {/* TAMANHO */}
-          <section>
-            <h4 className="font-medium mb-2">Tamanho</h4>
-            <RadioGroup
-              value={selectedSize}
-              onValueChange={v => setSelectedSize(v as PizzaSize)}
-              className="grid grid-cols-4 gap-2"
-            >
+          <section className="space-y-3">
+            <h4 className="font-semibold">Tamanho</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
-                <Label
+                <motion.button
                   key={size}
-                  className="border rounded-lg p-3 text-center cursor-pointer data-[state=checked]:border-primary data-[state=checked]:bg-primary/5"
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedSize(size)}
+                  className={`rounded-xl border p-4 ${
+                    selectedSize === size
+                      ? 'border-primary bg-primary/10'
+                      : 'hover:border-primary/50'
+                  }`}
                 >
-                  <RadioGroupItem value={size} className="sr-only" />
                   <strong>{size}</strong>
-                  <span className="block text-xs text-muted-foreground">
-                    {sizeLabels[size]}
-                  </span>
-                </Label>
+                  <p className="text-xs">{sizeLabels[size]}</p>
+                  <p className="font-semibold">
+                    R$ {flavor.prices[size].toFixed(2)}
+                  </p>
+                </motion.button>
               ))}
-            </RadioGroup>
+            </div>
           </section>
 
           {/* SABORES */}
-          <section>
-            <h4 className="font-medium mb-2">Sabores</h4>
-            <RadioGroup
-              value={String(flavorCount)}
-              onValueChange={v => {
-                const count = Number(v) as 1 | 2;
-                setFlavorCount(count);
-                setSelectedFlavors([flavor]);
-              }}
-              className="flex gap-4 mb-4"
-            >
-              <Label><RadioGroupItem value="1" /> 1 sabor</Label>
-              <Label><RadioGroupItem value="2" /> 2 sabores</Label>
-            </RadioGroup>
+          <section className="space-y-4 mt-6">
+            <h4 className="font-semibold">Sabores</h4>
+
+            <div className="flex gap-3">
+              {[1, 2].map(v => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setFlavorCount(v as 1 | 2);
+                    setSelectedFlavors([flavor]);
+                  }}
+                  className={`px-4 py-2 rounded-full border ${
+                    flavorCount === v
+                      ? 'bg-primary text-white'
+                      : 'hover:border-primary'
+                  }`}
+                >
+                  {v} sabor{v === 2 && 'es'}
+                </button>
+              ))}
+            </div>
 
             {flavorCount === 2 &&
-              Object.entries(groupedFlavors).map(([category, items]) => (
-                <div key={category} className="mb-4">
-                  <h5 className="font-semibold mb-2">{category}</h5>
-                  <div className="space-y-2">
+              Object.entries(groupedFlavors).map(([cat, items]) => (
+                <div key={cat}>
+                  <h5 className="font-medium mb-2">{cat}</h5>
+                  <div className="grid gap-2">
                     {items.map(f => {
-                      const selected = selectedFlavors.some(s => s.id === f.id);
+                      const selected = selectedFlavors.some(
+                        s => s.id === f.id
+                      );
                       return (
-                        <div
+                        <motion.button
                           key={f.id}
+                          whileTap={{ scale: 0.97 }}
                           onClick={() => toggleFlavor(f)}
-                          className={`p-2 border rounded flex justify-between cursor-pointer transition ${
-                            selected ? 'border-primary bg-primary/5' : ''
+                          className={`flex justify-between p-3 border rounded-lg ${
+                            selected
+                              ? 'border-primary bg-primary/10'
+                              : 'hover:border-primary/50'
                           }`}
                         >
-                          <span>{f.name}</span>
-                          {selected && <Check className="w-4 h-4" />}
-                        </div>
+                          {f.name}
+                          {selected && <Check />}
+                        </motion.button>
                       );
                     })}
                   </div>
@@ -223,43 +240,54 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
           </section>
 
           {/* BORDA */}
-          <section>
-            <h4 className="font-medium mb-2">Borda recheada</h4>
-            <div className="space-y-2">
-              {borders.map(border => (
-                <div
-                  key={border.id}
-                  onClick={() =>
-                    setSelectedBorder(
-                      selectedBorder?.id === border.id ? undefined : border
-                    )
-                  }
-                  className={`p-2 border rounded cursor-pointer transition ${
-                    selectedBorder?.id === border.id
-                      ? 'border-primary bg-primary/5'
-                      : ''
-                  }`}
-                >
-                  {border.name} (+ R$ {border.prices[selectedSize].toFixed(2)})
-                </div>
-              ))}
-            </div>
+          <section className="space-y-3 mt-6">
+            <h4 className="font-semibold">Borda recheada</h4>
+
+            <button
+              onClick={() => setSelectedBorder(undefined)}
+              className={`w-full p-3 border rounded-lg ${
+                !selectedBorder ? 'border-primary bg-primary/10' : ''
+              }`}
+            >
+              Sem borda — R$ 0,00
+            </button>
+
+            {borders.map(b => (
+              <button
+                key={b.id}
+                onClick={() => setSelectedBorder(b)}
+                className={`w-full p-3 border rounded-lg ${
+                  selectedBorder?.id === b.id
+                    ? 'border-primary bg-primary/10'
+                    : 'hover:border-primary/50'
+                }`}
+              >
+                {b.name} (+ R$ {b.prices[selectedSize].toFixed(2)})
+              </button>
+            ))}
           </section>
 
-          {/* RESUMO */}
-          <section className="border-t pt-4">
-            {isInvalidTwoFlavors && (
+          {/* CARRINHO FLUTUANTE */}
+          <section className="sticky bottom-0 bg-background border-t pt-4 mt-6">
+            {invalidTwoFlavors && (
               <p className="text-sm text-red-500 mb-2">
-                Escolha 2 sabores
+                Escolha mais 1 sabor
               </p>
             )}
 
             <div className="flex justify-between items-center">
-              <strong className="text-xl">
+              <motion.strong
+                key={calculatePrice()}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-2xl"
+              >
                 R$ {calculatePrice().toFixed(2)}
-              </strong>
+              </motion.strong>
+
               <Button
-                disabled={isInvalidTwoFlavors}
+                size="lg"
+                disabled={invalidTwoFlavors}
                 onClick={() => {
                   addPizza(selectedSize, selectedFlavors, selectedBorder);
                   toast.success('Pizza adicionada 🍕');
