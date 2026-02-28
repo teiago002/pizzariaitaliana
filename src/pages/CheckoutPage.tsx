@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, MapPin, Phone, User, Lock } from 'lucide-react';
@@ -11,18 +11,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { isPizzeriaOpen, getNextOpeningMessage } from '@/utils/isPizzeriaOpen';
+import { getNextOpeningMessage } from '@/utils/isPizzeriaOpen';
+import { useOperatingHours } from '@/hooks/useOperatingHours';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, total } = useCart();
   const { settings } = useStore();
+  
+  // Hook que busca horários e fechamentos especiais no BD
+  const { isCurrentlyOpen, loading: hoursLoading } = useOperatingHours();
 
-  const operatingHours = settings.operatingHours;
   const isManuallyOpen = settings.isOpen;
 
-  // 🔥 REGRA CORRETA
-  const openNow = isManuallyOpen && isPizzeriaOpen(operatingHours);
+  // Define se a loja está aberta considerando o botão manual e a lógica de horários
+  const openNow = isManuallyOpen && isCurrentlyOpen();
   const closedMessage = getNextOpeningMessage();
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -32,10 +35,20 @@ const CheckoutPage: React.FC = () => {
     complement: '',
   });
 
-  // Redireciona se carrinho estiver vazio
-  if (items.length === 0) {
-    navigate('/carrinho');
-    return null;
+  // Efeito para redirecionar caso o carrinho seja esvaziado
+  useEffect(() => {
+    if (!hoursLoading && items.length === 0) {
+      navigate('/carrinho');
+    }
+  }, [items.length, navigate, hoursLoading]);
+
+  // Bloqueio de renderização durante carregamento para evitar erros de navegação
+  if (hoursLoading || items.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    );
   }
 
   const handleChange = (
@@ -88,6 +101,7 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    // Salva no sessionStorage para a próxima etapa do pagamento
     sessionStorage.setItem('customerInfo', JSON.stringify(customerInfo));
     navigate('/pagamento');
   };
@@ -127,7 +141,6 @@ const CheckoutPage: React.FC = () => {
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Dados do Cliente */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -141,9 +154,11 @@ const CheckoutPage: React.FC = () => {
                 <Input
                   id="name"
                   name="name"
+                  placeholder="Seu nome"
                   value={customerInfo.name}
                   onChange={handleChange}
                   className="mt-1.5"
+                  required
                 />
               </div>
 
@@ -154,17 +169,18 @@ const CheckoutPage: React.FC = () => {
                   <Input
                     id="phone"
                     name="phone"
+                    placeholder="(00) 00000-0000"
                     value={customerInfo.phone}
                     onChange={handlePhoneChange}
                     className="pl-10"
                     maxLength={15}
+                    required
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Endereço */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -178,9 +194,11 @@ const CheckoutPage: React.FC = () => {
                 <Textarea
                   id="address"
                   name="address"
+                  placeholder="Rua, número, bairro..."
                   value={customerInfo.address}
                   onChange={handleChange}
                   rows={3}
+                  required
                 />
               </div>
 
@@ -189,6 +207,7 @@ const CheckoutPage: React.FC = () => {
                 <Input
                   id="complement"
                   name="complement"
+                  placeholder="Apto, bloco, referência..."
                   value={customerInfo.complement}
                   onChange={handleChange}
                 />
@@ -196,7 +215,6 @@ const CheckoutPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Resumo */}
           <Card className="bg-muted/30">
             <CardContent className="p-4 flex justify-between items-center">
               <span className="text-muted-foreground">
