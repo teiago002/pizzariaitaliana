@@ -293,6 +293,11 @@ const AdminOrders: React.FC = () => {
   const confirmedOrders = orders.filter(o => o.status !== 'PENDING');
 
   const ordersByStatus = useCallback((status: OrderStatus) => {
+    // Se for a coluna CONFIRMED, mostra tanto CONFIRMED quanto PREPARING juntos
+    if (status === 'CONFIRMED') {
+      return confirmedOrders.filter(o => o.status === 'CONFIRMED' || o.status === 'PREPARING');
+    }
+    // Para as outras colunas, mostra apenas o status específico
     return confirmedOrders.filter(o => o.status === status);
   }, [confirmedOrders]);
 
