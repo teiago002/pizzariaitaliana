@@ -5,9 +5,12 @@ interface OperatingHours {
   enabled: boolean;
 }
 
-export function isPizzeriaOpen(operatingHours: OperatingHours[] = []): boolean {
+export function isPizzeriaOpen(
+  operatingHours?: OperatingHours[]
+): boolean {
+  // ✅ Se não houver horário configurado, NÃO bloqueia
   if (!Array.isArray(operatingHours) || operatingHours.length === 0) {
-    return false;
+    return true;
   }
 
   const now = new Date();

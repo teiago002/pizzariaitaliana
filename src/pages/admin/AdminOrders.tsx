@@ -26,8 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const KANBAN_COLUMNS: { status: OrderStatus; label: string; color: string; bg: string }[] = [
-  { status: 'CONFIRMED', label: 'Confirmado', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' },
-  { status: 'PREPARING', label: 'Preparando', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800' },
+  { status: 'CONFIRMED', label: 'Confirmado e preparando', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800' },
   { status: 'READY', label: 'Pronto', color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' },
   { status: 'DELIVERED', label: 'Entregue', color: 'text-muted-foreground', bg: 'bg-muted/40 border-border' },
   { status: 'CANCELLED', label: 'Cancelado', color: 'text-destructive', bg: 'bg-destructive/5 border-destructive/20' },

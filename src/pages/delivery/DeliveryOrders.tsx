@@ -67,16 +67,51 @@ const DeliveryOrderCard: React.FC<{ order: DeliveryOrder; onMarkDelivered: (id: 
             </div>
           </div>
 
-          {/* Items preview */}
-          <div className="bg-muted/30 rounded-lg p-2 space-y-0.5">
-            {(order.items || []).slice(0, 3).map((item: any, idx: number) => (
-              <p key={idx} className="text-xs text-muted-foreground">
-                {item.quantity}× {item.product?.name || item.name || 'Item'}
-              </p>
-            ))}
-            {(order.items || []).length > 3 && (
-              <p className="text-xs text-muted-foreground">+{(order.items || []).length - 3} mais...</p>
+          {/* Items completos */}
+          <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Itens do pedido:</p>
+            {order.items && order.items.length > 0 ? (
+              order.items.map((item: any, idx: number) => {
+                // Se for pizza
+                if (item.type === 'pizza') {
+                  const pizzaItem = item as any;
+                  const flavors = pizzaItem.flavors?.map((f: any) => f.name).join(' + ') || 'Pizza';
+                  const border = pizzaItem.border ? ` - Borda: ${pizzaItem.border.name}` : '';
+
+                  return (
+                    <div key={idx} className="text-xs border-b border-border/30 last:border-0 pb-1.5 last:pb-0">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{pizzaItem.quantity}× Pizza {pizzaItem.size}</span>
+                        <span className="text-primary">R$ {(pizzaItem.unitPrice * pizzaItem.quantity).toFixed(2)}</span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] ml-3">
+                        {flavors}{border}
+                      </p>
+                    </div>
+                  );
+                }
+                // Se for produto (bebida, etc)
+                else {
+                  const productItem = item as any;
+                  return (
+                    <div key={idx} className="text-xs border-b border-border/30 last:border-0 pb-1.5 last:pb-0">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{productItem.quantity}× {productItem.product?.name || productItem.name || 'Item'}</span>
+                        <span className="text-primary">R$ {(productItem.unitPrice * productItem.quantity).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+              })
+            ) : (
+              <p className="text-xs text-muted-foreground">Nenhum item listado</p>
             )}
+
+            {/* Total do pedido dentro do card */}
+            <div className="flex justify-between items-center pt-1 mt-1 border-t border-border">
+              <span className="text-xs font-semibold">Total:</span>
+              <span className="font-bold text-sm text-primary">R$ {Number(order.total).toFixed(2)}</span>
+            </div>
           </div>
 
           <div className="flex gap-2 flex-wrap">

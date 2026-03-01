@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Lock, Check } from 'lucide-react';
 import { PizzaFlavor, PizzaSize, PizzaBorder } from '@/types';
@@ -44,6 +44,13 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     return groups;
   }, [flavors]);
 
+  // Garantir que ao voltar para 1 sabor, volte para o sabor inicial
+  useEffect(() => {
+    if (flavorCount === 1) {
+      setSelectedFlavors([flavor]);
+    }
+  }, [flavorCount, flavor]);
+
   const handleOpenModal = () => {
     if (!openNow) {
       toast.error('Pedidos apenas no horário de funcionamento.');
@@ -62,10 +69,16 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     const exists = selectedFlavors.some(s => s.id === f.id);
 
     if (exists) {
+      // Se for o único sabor e tentar remover, não permite
       if (selectedFlavors.length === 1) return;
+
+      // Remove o sabor
       setSelectedFlavors(prev => prev.filter(s => s.id !== f.id));
     } else {
-      if (selectedFlavors.length >= 2) return;
+      // Se já tem 2 sabores, não permite adicionar mais
+      if (selectedFlavors.length >= flavorCount) return;
+
+      // Adiciona o novo sabor
       setSelectedFlavors(prev => [...prev, f]);
     }
   };
@@ -155,22 +168,34 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
             <h4 className="font-semibold">Tamanho</h4>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`rounded-xl border p-3 text-center transition ${
-                    selectedSize === size
-                      ? 'border-primary bg-primary/10'
-                      : 'hover:border-primary/50'
-                  }`}
-                >
-                  <strong>{size}</strong>
-                  <p className="text-sm">
-                    R$ {flavor.prices[size].toFixed(2)}
-                  </p>
-                </button>
-              ))}
+              {(['P', 'M', 'G', 'GG'] as PizzaSize[]).map(size => {
+                // Calcular o preço para este tamanho baseado nos sabores selecionados
+                let priceForSize = 0;
+
+                if (selectedFlavors.length === 1) {
+                  priceForSize = selectedFlavors[0].prices[size];
+                } else if (selectedFlavors.length === 2) {
+                  priceForSize =
+                    selectedFlavors[0].prices[size] / 2 +
+                    selectedFlavors[1].prices[size] / 2;
+                }
+
+                return (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`rounded-xl border p-3 text-center transition ${selectedSize === size
+                        ? 'border-primary bg-primary/10'
+                        : 'hover:border-primary/50'
+                      }`}
+                  >
+                    <strong>{size}</strong>
+                    <p className="text-sm">
+                      R$ {priceForSize.toFixed(2)}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
