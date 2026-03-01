@@ -38,6 +38,7 @@ import DeliveryLayout from "@/pages/delivery/DeliveryLayout";
 import DeliveryOrders from "@/pages/delivery/DeliveryOrders";
 
 import NotFound from "./pages/NotFound";
+import DeliveryLoginPage from "./pages/delivery/DeliveryLoginPage";
 
 const queryClient = new QueryClient();
 
@@ -66,8 +67,9 @@ const App = () => (
                 <Route path="/login" element={<LoginPage />} />
 
                 {/* Admin Routes */}
-                <Route path="/admin" element={<AdminLoginPage />} />
+                <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
                   <Route path="dashboard" element={<AdminDashboard />} />
                   <Route path="pedidos" element={<AdminOrders />} />
                   <Route path="produtos" element={<AdminProducts />} />
@@ -82,7 +84,9 @@ const App = () => (
                 </Route>
 
                 {/* Delivery Routes */}
+                <Route path="/entregador/login" element={<DeliveryLoginPage />} /> {/* Crie esta página */}
                 <Route path="/entregador" element={<DeliveryLayout />}>
+                  <Route index element={<DeliveryOrders />} />
                   <Route path="entregas" element={<DeliveryOrders />} />
                 </Route>
 
