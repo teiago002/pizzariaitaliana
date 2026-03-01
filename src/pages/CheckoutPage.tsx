@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, MapPin, Phone, User, Lock } from 'lucide-react';
@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { isPizzeriaOpen, getNextOpeningMessage } from '@/utils/isPizzeriaOpen';
+import { getNextOpeningMessage, isPizzeriaOpen } from '@/utils/isPizzeriaOpen';
+import { useOperatingHours } from '@/hooks/useOperatingHours';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,10 +20,11 @@ const CheckoutPage: React.FC = () => {
   const { settings } = useStore();
 
   const operatingHours = settings.operatingHours;
+  const isManuallyOpen = settings.isOpen;
 
-  // ✅ REGRA CORRETA
-  const openNow = settings.isOpen;
-  const openBySchedule = isPizzeriaOpen(operatingHours);
+  // 🔥 REGRA CORRETA
+  const openNow = isManuallyOpen && isPizzeriaOpen(operatingHours);
+  const closedMessage = getNextOpeningMessage();
 
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
@@ -31,6 +33,7 @@ const CheckoutPage: React.FC = () => {
     complement: '',
   });
 
+  // Redireciona se carrinho estiver vazio
   if (items.length === 0) {
     navigate('/carrinho');
     return null;
@@ -83,6 +86,7 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    // Salva no sessionStorage para a próxima etapa do pagamento
     sessionStorage.setItem('customerInfo', JSON.stringify(customerInfo));
     navigate('/pagamento');
   };
@@ -112,7 +116,7 @@ const CheckoutPage: React.FC = () => {
           </p>
 
           {/* ⚠️ AVISO, NÃO BLOQUEIO */}
-          {openNow && !openBySchedule && (
+          {isManuallyOpen && !isPizzeriaOpen(operatingHours) && (
             <div className="mt-4 flex items-center gap-2 bg-yellow-500/10 text-yellow-600 px-4 py-3 rounded-lg">
               <Lock className="w-5 h-5" />
               <span className="text-sm font-medium">
@@ -132,7 +136,6 @@ const CheckoutPage: React.FC = () => {
         </motion.div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Dados do Cliente */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -142,18 +145,33 @@ const CheckoutPage: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Nome Completo *</Label>
-                <Input name="name" value={customerInfo.name} onChange={handleChange} />
+                <Label htmlFor="name">Nome Completo *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={customerInfo.name}
+                  onChange={handleChange}
+                  className="mt-1.5"
+                />
               </div>
 
               <div>
-                <Label>Telefone *</Label>
-                <Input value={customerInfo.phone} onChange={handlePhoneChange} />
+                <Label htmlFor="phone">Telefone / WhatsApp *</Label>
+                <div className="relative mt-1.5">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={customerInfo.phone}
+                    onChange={handlePhoneChange}
+                    className="pl-10"
+                    maxLength={15}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Endereço */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -161,16 +179,48 @@ const CheckoutPage: React.FC = () => {
                 Endereço de Entrega
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Textarea
-                name="address"
-                value={customerInfo.address}
-                onChange={handleChange}
-              />
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="address">Endereço Completo *</Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  value={customerInfo.address}
+                  onChange={handleChange}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="complement">Complemento</Label>
+                <Input
+                  id="complement"
+                  name="complement"
+                  value={customerInfo.complement}
+                  onChange={handleChange}
+                />
+              </div>
             </CardContent>
           </Card>
 
-          <Button type="submit" size="lg" className="w-full" disabled={!openNow}>
+          {/* Resumo */}
+          <Card className="bg-muted/30">
+            <CardContent className="p-4 flex justify-between items-center">
+              <span className="text-muted-foreground">
+                {items.length} {items.length === 1 ? 'item' : 'itens'}
+              </span>
+              <span className="text-xl font-bold text-primary">
+                R$ {total.toFixed(2)}
+              </span>
+            </CardContent>
+          </Card>
+
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={!openNow}
+          >
             Continuar para Pagamento
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
