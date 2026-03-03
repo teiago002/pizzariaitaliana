@@ -16,7 +16,7 @@ import { Printer, Eye, Clock, CheckCircle, XCircle, Truck, MessageCircle, Loader
 import { useOrders } from '@/hooks/useOrders';
 import { useSettings } from '@/hooks/useSettings';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
-import { Order, OrderStatus, CartItemPizza } from '@/types';
+import { Order, OrderStatus, CartItemPizza, CartItemProduct } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -347,45 +347,243 @@ const AdminOrders: React.FC = () => {
   };
 
   const handlePrint = (order: Order) => {
+    // Formatar data e hora
+    const date = new Date(order.createdAt);
+    const formattedDate = date.toLocaleDateString('pt-BR');
+    const formattedTime = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    // Agrupar itens por tipo para melhor organização
+    const pizzas = order.items.filter(item => item.type === 'pizza');
+    const products = order.items.filter(item => item.type === 'product');
+
+    // Criar conteúdo HTML para impressão
     const printContent = `
-      <html>
-        <head>
-          <title>Pedido ${order.id.substring(0, 8).toUpperCase()}</title>
-          <style>
-            body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; }
-            h1 { font-size: 18px; text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-            .info { margin: 8px 0; font-size: 13px; }
-            .item { margin: 4px 0; font-size: 12px; }
-            .total { font-weight: bold; border-top: 2px dashed #000; padding-top: 10px; margin-top: 10px; }
-            .footer { text-align: center; margin-top: 20px; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          <h1>🍕 ${settings.name}</h1>
-          <div class="info"><strong>Pedido:</strong> ${order.id.substring(0, 8).toUpperCase()}</div>
-          <div class="info"><strong>Data:</strong> ${new Date(order.createdAt).toLocaleString('pt-BR')}</div>
-          <div class="info"><strong>Cliente:</strong> ${order.customer.name}</div>
-          <div class="info"><strong>Telefone:</strong> ${order.customer.phone}</div>
-          <div class="info"><strong>Endereço:</strong> ${order.customer.address}</div>
-          ${order.customer.complement ? `<div class="info"><strong>Complemento:</strong> ${order.customer.complement}</div>` : ''}
-          <hr/>
-          <div><strong>Itens:</strong></div>
-          ${order.items.map(item => {
-            if (item.type === 'pizza') {
-              return `<div class="item">${item.quantity}x Pizza ${item.size} (${(item as CartItemPizza).flavors.map(f => f.name).join(' + ')}) - R$ ${(item.unitPrice * item.quantity).toFixed(2)}</div>`;
-            } else {
-              return `<div class="item">${item.quantity}x ${item.product.name} - R$ ${(item.unitPrice * item.quantity).toFixed(2)}</div>`;
-            }
-          }).join('')}
-          <div class="total">TOTAL: R$ ${order.total.toFixed(2)}</div>
-          <div class="info"><strong>Pagamento:</strong> ${paymentLabels[order.payment.method]}</div>
-          ${order.payment.needsChange ? `<div class="info"><strong>Troco para:</strong> R$ ${order.payment.changeFor?.toFixed(2)}</div>` : ''}
-          <div class="footer">Obrigado pela preferência!</div>
-        </body>
-      </html>
-    `;
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(printContent); w.document.close(); w.print(); }
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Pedido ${order.id.substring(0, 8).toUpperCase()}</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Courier New', monospace;
+          background: #fff;
+          color: #000;
+          line-height: 1.4;
+          padding: 20px;
+          max-width: 300px;
+          margin: 0 auto;
+        }
+
+        .header {
+          text-align: center;
+          border-bottom: 2px dashed #000;
+          padding-bottom: 15px;
+          margin-bottom: 15px;
+        }
+
+        .header h1 {
+          font-size: 24px;
+          margin-bottom: 5px;
+        }
+
+        .header h2 {
+          font-size: 18px;
+          font-weight: normal;
+        }
+
+        .order-info {
+          margin-bottom: 15px;
+          padding: 10px;
+          background: #f5f5f5;
+          border-radius: 5px;
+        }
+
+        .order-info p {
+          margin: 3px 0;
+          font-size: 13px;
+        }
+
+        .section-title {
+          font-weight: bold;
+          font-size: 14px;
+          margin: 15px 0 8px 0;
+          border-bottom: 1px solid #000;
+          padding-bottom: 3px;
+        }
+
+        .item {
+          margin: 8px 0;
+          padding: 5px 0;
+          border-bottom: 1px dotted #ccc;
+        }
+
+        .item-header {
+          display: flex;
+          justify-content: space-between;
+          font-weight: bold;
+          font-size: 13px;
+        }
+
+        .item-details {
+          font-size: 11px;
+          color: #666;
+          margin-left: 15px;
+          margin-top: 3px;
+        }
+
+        .total-section {
+          margin-top: 20px;
+          border-top: 2px solid #000;
+          padding-top: 10px;
+        }
+
+        .total-row {
+          display: flex;
+          justify-content: space-between;
+          font-size: 14px;
+          margin: 5px 0;
+        }
+
+        .grand-total {
+          font-size: 18px;
+          font-weight: bold;
+          border-top: 1px solid #000;
+          margin-top: 8px;
+          padding-top: 8px;
+        }
+
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          font-size: 11px;
+          border-top: 1px dashed #000;
+          padding-top: 15px;
+        }
+
+        .payment-info {
+          background: #f0f0f0;
+          padding: 8px;
+          border-radius: 5px;
+          margin: 10px 0;
+          font-size: 12px;
+        }
+
+        @media print {
+          body { padding: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🍕 ${settings?.name || 'Pizzaria'}</h1>
+        <h2>Comprovante de Pedido</h2>
+      </div>
+
+      <div class="order-info">
+        <p><strong>Pedido:</strong> #${order.id.substring(0, 8).toUpperCase()}</p>
+        <p><strong>Data:</strong> ${formattedDate} às ${formattedTime}</p>
+        <p><strong>Cliente:</strong> ${order.customer.name}</p>
+        <p><strong>Telefone:</strong> ${order.customer.phone}</p>
+        <p><strong>Endereço:</strong> ${order.customer.address}</p>
+        ${order.customer.complement ? `<p><strong>Complemento:</strong> ${order.customer.complement}</p>` : ''}
+      </div>
+
+      ${pizzas.length > 0 ? `
+        <div class="section-title">🍕 PIZZAS</div>
+        ${pizzas.map(item => {
+      const pizzaItem = item as CartItemPizza;
+      const flavors = pizzaItem.flavors.map(f => f.name).join(' + ');
+      const border = pizzaItem.border ? ` - Borda: ${pizzaItem.border.name}` : '';
+      return `
+            <div class="item">
+              <div class="item-header">
+                <span>${pizzaItem.quantity}x Pizza ${pizzaItem.size}</span>
+                <span>R$ ${(pizzaItem.unitPrice * pizzaItem.quantity).toFixed(2)}</span>
+              </div>
+              <div class="item-details">${flavors}${border}</div>
+            </div>
+          `;
+    }).join('')}
+      ` : ''}
+
+      ${products.length > 0 ? `
+        <div class="section-title">🥤 BEBIDAS & OUTROS</div>
+        ${products.map(item => {
+      const productItem = item as CartItemProduct;
+      return `
+            <div class="item">
+              <div class="item-header">
+                <span>${productItem.quantity}x ${productItem.product.name}</span>
+                <span>R$ ${(productItem.unitPrice * productItem.quantity).toFixed(2)}</span>
+              </div>
+            </div>
+          `;
+    }).join('')}
+      ` : ''}
+
+      <div class="total-section">
+        <div class="total-row">
+          <span>Subtotal:</span>
+          <span>R$ ${order.total.toFixed(2)}</span>
+        </div>
+        <div class="total-row">
+          <span>Entrega:</span>
+          <span>Grátis</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>TOTAL:</span>
+          <span>R$ ${order.total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div class="payment-info">
+        <strong>Pagamento:</strong> ${order.payment.method === 'pix' ? 'PIX' :
+        order.payment.method === 'cash' ? 'Dinheiro' : 'Cartão'
+      }
+        ${order.payment.needsChange ? `<br><strong>Troco para:</strong> R$ ${order.payment.changeFor?.toFixed(2)}` : ''}
+      </div>
+
+      <div class="footer">
+        <p>Obrigado pela preferência!</p>
+        <p style="font-size: 9px; margin-top: 5px;">${settings?.address || ''}</p>
+        <p style="font-size: 9px;">${settings?.whatsapp ? `WhatsApp: ${settings.whatsapp}` : ''}</p>
+      </div>
+
+      <script>
+        window.onload = () => {
+          window.print();
+          setTimeout(() => window.close(), 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+    // Abrir janela de impressão
+    const printWindow = window.open('', '_blank', 'width=400,height=600,menubar=no,toolbar=no,location=no,status=no');
+
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+    } else {
+      // Se o popup foi bloqueado
+      toast.error('Permita popups para imprimir o pedido');
+
+      // Fallback: imprimir na mesma página
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      iframe.contentDocument?.write(printContent);
+      iframe.contentDocument?.close();
+      iframe.contentWindow?.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }
   };
 
   if (loading) {
