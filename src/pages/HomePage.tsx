@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useStore } from '@/contexts/StoreContext';
@@ -6,7 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 const HomePage: React.FC = () => {
-  const { settings } = useStore();
+  const { settings, refetchSettings } = useStore();
+  
+  // Forçar atualização quando a página receber foco
+useEffect(() => {
+  const handleFocus = () => {
+    refetchSettings();
+  };
+
+  window.addEventListener('focus', handleFocus);
+  return () => window.removeEventListener('focus', handleFocus);
+}, [refetchSettings]);
 
   const openNow = settings.isOpen;
 

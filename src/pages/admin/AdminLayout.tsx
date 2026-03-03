@@ -29,10 +29,11 @@ const AdminLayout: React.FC = () => {
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [pendingCount, setPendingCount] = useState(0);
 
-  // Count new/confirmed undelivered orders for badge
+// Count active orders (not delivered, cancelled or pending)
   useEffect(() => {
     const active = orders.filter(o => !['DELIVERED', 'CANCELLED', 'PENDING'].includes(o.status));
     setPendingCount(active.length);
+    console.log('Pedidos ativos:', active.length); // Debug
   }, [orders]);
 
   // Bump badge on new orders

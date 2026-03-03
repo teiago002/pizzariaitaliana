@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { PizzeriaSettings, PizzaFlavor, PizzaBorder, PizzaSizeOption, Product } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -99,6 +99,42 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
       return data;
     },
   });
+   // Estado local para forçar atualização
+  const [settingsVersion, setSettingsVersion] = useState(0);
+
+  // Real-time subscription para settings
+  useEffect(() => {
+    console.log('Iniciando subscription de settings...');
+
+    const channel = supabase
+      .channel('settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'pizzeria_settings',
+        },
+        (payload) => {
+          console.log('⚡ Settings atualizados via realtime:', payload);
+          // Força o refetch
+          refetchSettings();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Status da subscription:', status);
+      });
+
+    return () => {
+      console.log('Removendo subscription...');
+      supabase.removeChannel(channel);
+    };
+  }, [refetchSettings]);
+
+  // Forçar refetch inicial
+  useEffect(() => {
+    refetchSettings();
+  }, []);
 
   /* -------- FLAVORS -------- */
   const {

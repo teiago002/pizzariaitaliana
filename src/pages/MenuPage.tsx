@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Loader2, X } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
@@ -10,9 +10,58 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 const MenuPage: React.FC = () => {
-  const { flavors, products, isLoadingFlavors, isLoadingProducts } = useStore();
+  const { flavors, products, isLoadingFlavors, isLoadingProducts, settings, refetchSettings } = useStore();
+  
+  // Estado local para forçar atualização
+  const [isOpen, setIsOpen] = useState(settings.isOpen);
+  
+  // Atualiza o estado local quando settings mudar
+  useEffect(() => {
+    console.log('Settings atualizado:', settings.isOpen);
+    setIsOpen(settings.isOpen);
+  }, [settings]);
+
+  // Forçar atualização a cada 5 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('Refetching settings...');
+      refetchSettings();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [refetchSettings]);
+
+  // Forçar atualização quando a página receber foco
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Page focused, refetching...');
+      refetchSettings();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refetchSettings]);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // Se a loja estiver fechada, mostra mensagem
+  if (!isOpen) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-6xl mb-4">🕒</div>
+          <h2 className="text-3xl font-bold mb-3">Loja Fechada</h2>
+          <p className="text-muted-foreground text-lg mb-6">
+            Estamos fechados no momento. Volte mais tarde para fazer seu pedido!
+          </p>
+          <Button onClick={() => refetchSettings()} variant="outline" className="mt-4">
+            Verificar novamente
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const filteredFlavors = useMemo(() => flavors.filter(f =>
     f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,6 +127,13 @@ const MenuPage: React.FC = () => {
   return (
     <div className="min-h-screen py-8 md:py-12">
       <div className="container mx-auto px-4">
+        {/* Header com status em tempo real */}
+        <div className="text-center mb-4">
+          <Badge variant={isOpen ? "default" : "destructive"} className="text-sm">
+            {isOpen ? '🟢 Aberto agora' : '🔴 Fechado'}
+          </Badge>
+        </div>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
