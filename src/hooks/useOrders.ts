@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Order, OrderStatus, CartItem, CustomerInfo, PaymentMethod } from '@/types';
+import { Order, OrderStatus, CartItem, CustomerInfo, PaymentMethod, SplitPayment } from '@/types';
 import { toast } from 'sonner';
 
 interface DbOrder {
@@ -11,6 +11,7 @@ interface DbOrder {
   customer_complement: string | null;
   items: any;
   payment_method: string;
+  payment_data?: any;
   needs_change: boolean | null;
   change_for: number | null;
   total: number;
@@ -20,25 +21,38 @@ interface DbOrder {
   updated_at: string;
 }
 
-const mapDbToOrder = (dbOrder: DbOrder): Order => ({
-  id: dbOrder.id,
-  customer: {
-    name: dbOrder.customer_name,
-    phone: dbOrder.customer_phone,
-    address: dbOrder.customer_address,
-    complement: dbOrder.customer_complement || undefined,
-  },
-  items: dbOrder.items as CartItem[],
-  payment: {
-    method: dbOrder.payment_method as PaymentMethod,
-    needsChange: dbOrder.needs_change || undefined,
-    changeFor: dbOrder.change_for || undefined,
-  },
-  total: Number(dbOrder.total),
-  status: dbOrder.status as OrderStatus,
-  createdAt: new Date(dbOrder.created_at),
-  updatedAt: new Date(dbOrder.updated_at),
-});
+const mapDbToOrder = (dbOrder: DbOrder): Order => {
+  const paymentMethod = dbOrder.payment_method as PaymentMethod;
+  
+  let payment: any = {
+    method: paymentMethod,
+  };
+
+  if (dbOrder.payment_data) {
+    payment = { ...payment, ...dbOrder.payment_data };
+  }
+
+  if (dbOrder.needs_change) {
+    payment.needsChange = true;
+    payment.changeFor = dbOrder.change_for || undefined;
+  }
+
+  return {
+    id: dbOrder.id,
+    customer: {
+      name: dbOrder.customer_name,
+      phone: dbOrder.customer_phone,
+      address: dbOrder.customer_address,
+      complement: dbOrder.customer_complement || undefined,
+    },
+    items: dbOrder.items as CartItem[],
+    payment,
+    total: Number(dbOrder.total),
+    status: dbOrder.status as OrderStatus,
+    createdAt: new Date(dbOrder.created_at),
+    updatedAt: new Date(dbOrder.updated_at),
+  };
+};
 
 export function useOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -64,7 +78,6 @@ export function useOrders() {
   useEffect(() => {
     fetchOrders();
 
-    // Subscribe to realtime updates
     const channel = supabase
       .channel('orders-changes')
       .on(
@@ -97,35 +110,87 @@ export function useOrders() {
   const createOrder = async (
     items: CartItem[],
     customer: CustomerInfo,
-    paymentMethod: PaymentMethod,
+    paymentMethod: PaymentMethod | 'split',
     total: number,
     needsChange?: boolean,
-    changeFor?: number
+    changeFor?: number,
+    splitPayments?: SplitPayment[]
   ): Promise<string | null> => {
     try {
+      console.log('=== createOrder iniciado ===');
+      console.log('Items:', items);
+      console.log('Customer:', customer);
+      console.log('PaymentMethod:', paymentMethod);
+      console.log('Total:', total);
+      console.log('NeedsChange:', needsChange);
+      console.log('ChangeFor:', changeFor);
+      console.log('SplitPayments:', splitPayments);
+
+      // Prepara o objeto de pagamento para guardar no banco
+      const paymentData: any = {};
+
+      // Determinar o payment_method real para o banco (só aceita pix, cash, card)
+      let dbPaymentMethod: 'pix' | 'cash' | 'card';
+
+      if (paymentMethod === 'split') {
+        dbPaymentMethod = 'cash'; // Padrão para split, os detalhes vão no payment_data
+        paymentData.method = 'split';
+        paymentData.splitPayments = splitPayments;
+      } else {
+        dbPaymentMethod = paymentMethod as 'pix' | 'cash' | 'card';
+        if (paymentMethod === 'cash' && needsChange) {
+          paymentData.needsChange = true;
+          paymentData.changeFor = changeFor;
+        }
+      }
+
+      console.log('dbPaymentMethod:', dbPaymentMethod);
+      console.log('PaymentData:', paymentData);
+
+      const insertData: any = {
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        customer_address: customer.address,
+        customer_complement: customer.complement || null,
+        items: items as unknown as import('@/integrations/supabase/types').Json,
+        payment_method: dbPaymentMethod,
+        needs_change: needsChange || false,
+        change_for: changeFor || null,
+        total: total,
+        status: 'PENDING' as const,
+      };
+
+      // Só adiciona payment_data se não estiver vazio
+      if (Object.keys(paymentData).length > 0) {
+        insertData.payment_data = paymentData;
+      }
+
+      console.log('Insert data:', insertData);
+
       const { data, error } = await supabase
         .from('orders')
-        .insert({
-          customer_name: customer.name,
-          customer_phone: customer.phone,
-          customer_address: customer.address,
-          customer_complement: customer.complement || null,
-          items: items as unknown as import('@/integrations/supabase/types').Json,
-          payment_method: paymentMethod as 'pix' | 'cash' | 'card',
-          needs_change: needsChange || false,
-          change_for: changeFor || null,
-          total: total,
-          status: 'PENDING' as const,
-        })
+        .insert(insertData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro do Supabase:', error);
+        throw error;
+      }
 
+      console.log('Resposta do Supabase:', data);
+      
+      if (!data) {
+        console.error('Nenhum dado retornado do Supabase');
+        return null;
+      }
+
+      console.log('Order criado com ID:', data.id);
       return data.id;
+      
     } catch (error) {
       console.error('Error creating order:', error);
-      toast.error('Erro ao criar pedido');
+      toast.error('Erro ao criar pedido: ' + (error as Error).message);
       return null;
     }
   };
@@ -139,7 +204,6 @@ export function useOrders() {
 
       if (error) throw error;
 
-      // Send WhatsApp notification
       const messageTypeMap: Record<OrderStatus, string> = {
         PENDING: 'order_pending',
         CONFIRMED: 'order_confirmed',
@@ -169,7 +233,6 @@ export function useOrders() {
 
       if (error) throw error;
 
-      // Send confirmation WhatsApp
       await supabase.functions.invoke('send-whatsapp', {
         body: { orderId, messageType: 'order_confirmed' },
       });

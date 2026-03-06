@@ -26,6 +26,7 @@ export interface PizzaFlavor {
 }
 
 export interface PizzaBorder {
+  map(arg0: (b: any) => any): unknown;
   id: string;
   name: string;
   price: number;
@@ -67,6 +68,7 @@ export interface CartItemPizza {
   size: PizzaSize;
   flavors: PizzaFlavor[];
   border?: PizzaBorder;
+  observation?: string;
   quantity: number;
   unitPrice: number;
 }
@@ -77,6 +79,7 @@ export interface CartItemProduct {
   product: Product;
   quantity: number;
   unitPrice: number;
+  observation?: string;
 }
 
 export type CartItem = CartItemPizza | CartItemProduct;
@@ -92,6 +95,7 @@ export interface PaymentInfo {
   method: PaymentMethod;
   needsChange?: boolean;
   changeFor?: number;
+  splitPayments?: SplitPayment[];
 }
 
 export interface Order {
@@ -124,4 +128,9 @@ export interface PizzeriaSettings {
 
   // ✅ ADICIONAR ISTO
   operatingHours: OperatingHours[];
+}
+
+export interface SplitPayment {
+  method: PaymentMethod;
+  amount: number;
 }

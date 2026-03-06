@@ -30,8 +30,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
   const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([flavor]);
 
-  const [withBorder, setWithBorder] = useState(false);
-  const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
+  // Estados para borda (agora suporta múltiplos sabores)
+  const [hasBorder, setHasBorder] = useState(false);
+  const [withBorders, setWithBorders] = useState<PizzaBorder[]>([]);
+  
+  // Estado para observação
+  const [observation, setObservation] = useState('');
 
   /* Agrupar sabores por categoria */
   const groupedFlavors = useMemo(() => {
@@ -60,8 +64,9 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     setSelectedSize('M');
     setFlavorCount(1);
     setSelectedFlavors([flavor]);
-    setWithBorder(false);
-    setSelectedBorder(undefined);
+    setHasBorder(false);
+    setWithBorders([]);
+    setObservation('');
     setIsOpen(true);
   };
 
@@ -83,6 +88,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
     }
   };
 
+  const calculateBorderTotal = () => {
+    return withBorders.reduce((sum, border) => {
+      return sum + (border.prices?.[selectedSize] || border.price || 0);
+    }, 0);
+  };
+
   const calculatePrice = () => {
     let flavorPrice = 0;
 
@@ -96,10 +107,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
         selectedFlavors[1].prices[selectedSize] / 2;
     }
 
-    const borderPrice =
-      withBorder && selectedBorder
-        ? selectedBorder.prices[selectedSize]
-        : 0;
+    const borderPrice = calculateBorderTotal();
 
     return flavorPrice + borderPrice;
   };
@@ -107,8 +115,8 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
   const isInvalidTwoFlavors =
     flavorCount === 2 && selectedFlavors.length < 2;
 
-  // ✅ CORREÇÃO: validação da borda
-  const isBorderInvalid = withBorder && !selectedBorder;
+  // Validação: se marcou "Com borda" mas não selecionou nenhuma
+  const isBorderInvalid = hasBorder && withBorders.length === 0;
 
   return (
     <>
@@ -249,50 +257,101 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               ))}
           </section>
 
-          {/* BORDA */}
+          {/* BORDA - AGORA COM MÚLTIPLOS SABORES */}
           <section className="space-y-3">
             <h4 className="font-semibold">Borda recheada</h4>
 
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  setWithBorder(false);
-                  setSelectedBorder(undefined);
+                  setHasBorder(false);
+                  setWithBorders([]);
                 }}
                 className={`px-4 py-2 rounded-full border ${
-                  !withBorder ? 'bg-primary text-white' : ''
+                  !hasBorder ? 'bg-primary text-white' : ''
                 }`}
               >
                 Sem borda
               </button>
 
               <button
-                onClick={() => setWithBorder(true)}
+                onClick={() => {
+                  if (!hasBorder && borders.length > 0) {
+                    setHasBorder(true);
+                    // Se não tem nenhuma borda selecionada, seleciona a primeira automaticamente
+                    if (withBorders.length === 0 && borders.length > 0) {
+                      setWithBorders([borders[0]]);
+                    }
+                  }
+                }}
                 className={`px-4 py-2 rounded-full border ${
-                  withBorder ? 'bg-primary text-white' : ''
+                  hasBorder ? 'bg-primary text-white' : ''
                 }`}
               >
                 Com borda
               </button>
             </div>
 
-            {withBorder &&
-              borders.map(border => (
-                <button
-                  key={border.id}
-                  onClick={() => setSelectedBorder(border)}
-                  className={`w-full flex justify-between p-3 rounded-lg border ${
-                    selectedBorder?.id === border.id
-                      ? 'border-primary bg-primary/10'
-                      : 'hover:border-primary/50'
-                  }`}
-                >
-                  <span>{border.name}</span>
-                  <span>
-                    + R$ {border.prices[selectedSize].toFixed(2)}
-                  </span>
-                </button>
-              ))}
+            {hasBorder && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Selecione até 2 sabores de borda:
+                </p>
+                <div className="grid gap-2">
+                  {borders.map(border => {
+                    const selected = withBorders.some(b => b.id === border.id);
+                    const disabled = withBorders.length >= 2 && !selected;
+                    
+                    return (
+                      <button
+                        key={border.id}
+                        onClick={() => {
+                          if (selected) {
+                            // Remove se já estiver selecionado
+                            setWithBorders(prev => prev.filter(b => b.id !== border.id));
+                          } else if (withBorders.length < 2) {
+                            // Adiciona se tiver menos de 2
+                            setWithBorders(prev => [...prev, border]);
+                          }
+                        }}
+                        disabled={disabled}
+                        className={`w-full flex justify-between p-3 rounded-lg border transition ${
+                          selected
+                            ? 'border-primary bg-primary/10'
+                            : disabled
+                              ? 'opacity-30 cursor-not-allowed'
+                              : 'hover:border-primary/50'
+                        }`}
+                      >
+                        <span>{border.name}</span>
+                        <span>
+                          + R$ {border.prices?.[selectedSize]?.toFixed(2) || border.price?.toFixed(2)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Mostrar total da borda */}
+                {withBorders.length > 0 && (
+                  <p className="text-sm text-right text-primary font-medium mt-2">
+                    Total borda: + R$ {calculateBorderTotal().toFixed(2)}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* Observação */}
+          <section className="space-y-2">
+            <h4 className="font-semibold">Observação (opcional)</h4>
+            <textarea
+              placeholder="Ex: tirar cebola, bem passada, etc..."
+              value={observation}
+              onChange={(e) => setObservation(e.target.value)}
+              className="w-full p-3 rounded-lg border border-border bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
+              rows={2}
+            />
           </section>
 
           {/* RESUMO */}
@@ -301,7 +360,7 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
               <p className="text-sm text-red-500 mb-2">
                 {isInvalidTwoFlavors
                   ? 'Escolha mais 1 sabor'
-                  : 'Escolha o tipo de borda recheada'}
+                  : 'Escolha pelo menos 1 sabor de borda'}
               </p>
             )}
 
@@ -314,7 +373,12 @@ export const PizzaCard: React.FC<PizzaCardProps> = ({ flavor }) => {
                 size="lg"
                 disabled={isInvalidTwoFlavors || isBorderInvalid}
                 onClick={() => {
-                  addPizza(selectedSize, selectedFlavors, selectedBorder);
+                  addPizza(
+                    selectedSize, 
+                    selectedFlavors, 
+                    withBorders.length > 0 ? withBorders[0] : undefined, 
+                    observation
+                  );
                   toast.success('Pizza adicionada 🍕');
                   setIsOpen(false);
                 }}

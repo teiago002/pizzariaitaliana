@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface InternalUser {
   id: string;
@@ -27,28 +28,36 @@ const roleLabels: Record<string, { label: string; color: string }> = {
 };
 
 const callAdminUsers = async (method: string, body?: object) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
-    {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    }
-  );
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Erro na requisição');
-  return data;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Usuário não autenticado');
+
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
+      {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      }
+    );
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
+    return data;
+  } catch (error: any) {
+    console.error('Erro na chamada:', error);
+    throw new Error(error.message || 'Erro de conexão');
+  }
 };
 
 const AdminUsers: React.FC = () => {
   const queryClient = useQueryClient();
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<InternalUser | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -56,11 +65,17 @@ const AdminUsers: React.FC = () => {
     role: 'employee' as 'employee' | 'delivery',
   });
 
-  const { data: users = [], isLoading } = useQuery<InternalUser[]>({
+  const { data: users = [], isLoading, error: fetchError } = useQuery<InternalUser[]>({
     queryKey: ['admin-internal-users'],
     queryFn: async () => {
-      const data = await callAdminUsers('GET');
-      return data.users;
+      setApiError(null);
+      try {
+        const data = await callAdminUsers('GET');
+        return data.users || [];
+      } catch (err: any) {
+        setApiError(err.message);
+        return [];
+      }
     },
   });
 
@@ -99,6 +114,7 @@ const AdminUsers: React.FC = () => {
   const resetForm = () => {
     setForm({ email: '', password: '', full_name: '', role: 'employee' });
     setEditingUser(null);
+    setApiError(null);
   };
 
   const openCreate = () => {
@@ -113,11 +129,17 @@ const AdminUsers: React.FC = () => {
   };
 
   const handleSave = () => {
+    setApiError(null);
+    
     if (editingUser) {
       updateMutation.mutate({ user_id: editingUser.id, role: form.role });
     } else {
       if (!form.email || !form.password) {
         toast.error('Email e senha são obrigatórios');
+        return;
+      }
+      if (form.password.length < 6) {
+        toast.error('A senha deve ter pelo menos 6 caracteres');
         return;
       }
       createMutation.mutate(form);
@@ -129,6 +151,19 @@ const AdminUsers: React.FC = () => {
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  if (fetchError || apiError) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Erro ao carregar usuários: {fetchError?.message || apiError}
+          </AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -194,7 +229,9 @@ const AdminUsers: React.FC = () => {
                         onClick={() => toggleBan(user)}
                         disabled={updateMutation.isPending}
                       >
-                        {user.banned ? (
+                        {updateMutation.isPending && user.id === editingUser?.id ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : user.banned ? (
                           <><UserCheck className="w-3 h-3 mr-1" /> Ativar</>
                         ) : (
                           <><UserX className="w-3 h-3 mr-1" /> Desativar</>
@@ -204,13 +241,17 @@ const AdminUsers: React.FC = () => {
                         size="sm"
                         variant="destructive"
                         onClick={() => {
-                          if (confirm(`Excluir ${user.email}? Esta ação não pode ser desfeita.`)) {
+                          if (window.confirm(`Excluir ${user.email}? Esta ação não pode ser desfeita.`)) {
                             deleteMutation.mutate(user.id);
                           }
                         }}
                         disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        {deleteMutation.isPending && deleteMutation.variables === user.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
                       </Button>
                     </div>
                   </CardContent>
@@ -263,7 +304,7 @@ const AdminUsers: React.FC = () => {
             {editingUser && (
               <div>
                 <Label>Usuário</Label>
-                <p className="text-sm font-medium">{editingUser.email}</p>
+                <p className="text-sm font-medium p-2 bg-muted rounded">{editingUser.email}</p>
               </div>
             )}
 

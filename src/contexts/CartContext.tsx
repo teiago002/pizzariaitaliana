@@ -3,7 +3,7 @@ import { CartItem, CartItemPizza, CartItemProduct, PizzaSize, PizzaFlavor, Pizza
 
 interface CartContextType {
   items: CartItem[];
-  addPizza: (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder) => void;
+  addPizza: (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder, observation?: string) => void;
   addProduct: (product: Product, quantity?: number) => void;
   removeItem: (index: number) => void;
   updateQuantity: (index: number, quantity: number) => void;
@@ -54,27 +54,28 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const addPizza = useCallback(
-    (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder) => {
+    (size: PizzaSize, flavors: PizzaFlavor[], border?: PizzaBorder, observation?: string) => {
       if (flavors.length === 0 || flavors.length > 2) {
         console.error('Pizza deve ter 1 ou 2 sabores', flavors);
         return;
       }
 
-    const unitPrice = calculatePizzaPrice(size, flavors, border);
-    const newItem: CartItemPizza = {
-      type: 'pizza',
-      id: `pizza-${Date.now()}`,
-      size,
-      flavors,
-      border,
-      quantity: 1,
-      unitPrice,
-    };
+      const unitPrice = calculatePizzaPrice(size, flavors, border);
+      const newItem: CartItemPizza = {
+        type: 'pizza',
+        id: `pizza-${Date.now()}`,
+        size,
+        flavors,
+        border,
+        observation, // 👈 AGORA RECONHECIDO
+        quantity: 1,
+        unitPrice,
+      };
 
-    setItems(prev => [...prev, newItem]);
-  },
-  []
-);
+      setItems(prev => [...prev, newItem]);
+    },
+    []
+  );
 
   const addProduct = useCallback((product: Product, quantity = 1) => {
     setItems(prev => {

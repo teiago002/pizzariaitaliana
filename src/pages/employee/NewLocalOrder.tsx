@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Minus, Trash2, ShoppingBag, Loader2, CreditCard, CheckCircle, ArrowRight, Clock, Search, X, Check } from 'lucide-react';
+import { 
+  Plus, Minus, Trash2, ShoppingBag, Loader2, CreditCard, 
+  CheckCircle, ArrowRight, Clock, Search, X, Check, Banknote,
+  Copy, QrCode, Split, AlertCircle
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useStore } from '@/contexts/StoreContext';
 import { useAuth } from '@/hooks/useAuth';
-import { PizzaFlavor, PizzaSize, PizzaBorder } from '@/types';
+import { PizzaFlavor, PizzaSize, PizzaBorder, SplitPayment } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface LocalOrderItem {
   id: string;
@@ -21,6 +28,7 @@ interface LocalOrderItem {
   price: number;
   quantity: number;
   type: 'product' | 'pizza';
+  observation?: string; // 👈 ADICIONADO
 }
 
 interface PendingLocalOrder {
@@ -47,20 +55,65 @@ const NewLocalOrder: React.FC = () => {
   const [pendingOrders, setPendingOrders] = useState<PendingLocalOrder[]>([]);
   const [loadingPending, setLoadingPending] = useState(true);
   const [paymentOrder, setPaymentOrder] = useState<PendingLocalOrder | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'cash' | 'card'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'cash' | 'card' | 'split'>('cash');
+  const [needsChange, setNeedsChange] = useState(false);
+  const [changeFor, setChangeFor] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [menuTab, setMenuTab] = useState<'pizzas' | 'bebidas'>('pizzas');
   const [selectedPizzaCategory, setSelectedPizzaCategory] = useState<string | null>(null);
+  
+  // Estados para PIX
+  const [showPixModal, setShowPixModal] = useState(false);
+  const [pixCode, setPixCode] = useState('');
+  const [pixLoading, setPixLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(600); // 10 minutos
 
-  // Pizza modal state
+  // Estados para split payment
+  const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([
+    { method: 'cash', amount: 0 },
+    { method: 'card', amount: 0 },
+  ]);
+  const [splitError, setSplitError] = useState('');
+
+  // Pizza modal state - ATUALIZADO com múltiplas bordas e observação
   const [pizzaModal, setPizzaModal] = useState(false);
   const [selectedFlavor, setSelectedFlavor] = useState<PizzaFlavor | null>(null);
   const [selectedSize, setSelectedSize] = useState<PizzaSize>('M');
   const [flavorCount, setFlavorCount] = useState<1 | 2>(1);
   const [selectedFlavors, setSelectedFlavors] = useState<PizzaFlavor[]>([]);
-  const [wantsBorder, setWantsBorder] = useState(false);
-  const [selectedBorder, setSelectedBorder] = useState<PizzaBorder | undefined>();
+  
+  // Estados para múltiplas bordas
+  const [hasBorder, setHasBorder] = useState(false);
+  const [selectedBorders, setSelectedBorders] = useState<PizzaBorder[]>([]);
+  
+  // Estado para observação
+  const [pizzaObservation, setPizzaObservation] = useState('');
+
+  // Timer para o PIX
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showPixModal && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [showPixModal, timeLeft]);
+
+  useEffect(() => {
+    if (showPixModal) {
+      setTimeLeft(600);
+    }
+  }, [showPixModal]);
+
+  // Reset split payments quando mudar de método
+  useEffect(() => {
+    if (paymentMethod !== 'split') {
+      setSplitError('');
+    }
+  }, [paymentMethod]);
 
   // Fetch product variants for drinks
   const { data: allVariants = [] } = useQuery({
@@ -194,15 +247,22 @@ const NewLocalOrder: React.FC = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Pizza modal handlers
+  // Pizza modal handlers - ATUALIZADO
   const openPizzaModal = (flavor: PizzaFlavor) => {
     setSelectedFlavor(flavor);
     setSelectedFlavors([flavor]);
     setFlavorCount(1);
     setSelectedSize('M');
-    setWantsBorder(false);
-    setSelectedBorder(undefined);
+    setHasBorder(false);
+    setSelectedBorders([]);
+    setPizzaObservation('');
     setPizzaModal(true);
+  };
+
+  const calculateBorderTotal = () => {
+    return selectedBorders.reduce((sum, border) => {
+      return sum + (border.prices?.[selectedSize] || border.price || 0);
+    }, 0);
   };
 
   const calculatePizzaPrice = () => {
@@ -212,9 +272,7 @@ const NewLocalOrder: React.FC = () => {
     } else {
       flavorPrice = Math.max(...selectedFlavors.map(f => f.prices[selectedSize]));
     }
-    const borderPrice = wantsBorder && selectedBorder
-      ? (selectedBorder.prices?.[selectedSize] || selectedBorder.price)
-      : 0;
+    const borderPrice = calculateBorderTotal();
     return flavorPrice + borderPrice;
   };
 
@@ -231,8 +289,15 @@ const NewLocalOrder: React.FC = () => {
   const addPizzaToOrder = () => {
     const price = calculatePizzaPrice();
     const flavorNames = selectedFlavors.map(f => f.name).join(' / ');
-    const borderName = wantsBorder && selectedBorder ? ` + Borda ${selectedBorder.name}` : '';
-    const name = `Pizza ${sizeLabels[selectedSize]} - ${flavorNames}${borderName}`;
+    
+    // Formatar nome das bordas
+    let borderText = '';
+    if (selectedBorders.length > 0) {
+      const borderNames = selectedBorders.map(b => b.name).join(' + ');
+      borderText = ` + Bordas: ${borderNames}`;
+    }
+    
+    const name = `Pizza ${sizeLabels[selectedSize]} - ${flavorNames}${borderText}`;
 
     setItems(prev => [...prev, {
       id: `pizza-${Date.now()}`,
@@ -240,6 +305,7 @@ const NewLocalOrder: React.FC = () => {
       price,
       quantity: 1,
       type: 'pizza',
+      observation: pizzaObservation || undefined,
     }]);
     toast.success('Pizza adicionada!');
     setPizzaModal(false);
@@ -292,6 +358,7 @@ const NewLocalOrder: React.FC = () => {
         quantity: i.quantity,
         unitPrice: i.price,
         name: i.name,
+        observation: i.observation,
       }));
 
       const { error } = await supabase.from('orders').insert({
@@ -321,24 +388,160 @@ const NewLocalOrder: React.FC = () => {
     }
   };
 
-  const handleFinishPayment = async () => {
+  const validateSplitPayments = () => {
+    if (!paymentOrder) return false;
+    
+    const totalSplit = splitPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    if (Math.abs(totalSplit - paymentOrder.total) > 0.01) {
+      setSplitError(`A soma dos valores (R$ ${totalSplit.toFixed(2)}) é diferente do total (R$ ${paymentOrder.total.toFixed(2)})`);
+      return false;
+    }
+
+    if (splitPayments.some(p => p.amount < 0)) {
+      setSplitError('Os valores não podem ser negativos');
+      return false;
+    }
+
+    setSplitError('');
+    return true;
+  };
+
+  const handleSplitAmountChange = (index: number, value: string) => {
+    const newAmount = parseFloat(value) || 0;
+    setSplitPayments(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], amount: newAmount };
+      return updated;
+    });
+    
+    setTimeout(() => validateSplitPayments(), 100);
+  };
+
+  const handleSplitPayment = async () => {
     if (!paymentOrder) return;
+
+    if (!validateSplitPayments()) {
+      toast.error(splitError || 'Valores inválidos');
+      return;
+    }
+
     setProcessingPayment(true);
     try {
+      // Criar objeto de payment_data
+      const paymentData = {
+        method: 'split',
+        splitPayments: splitPayments
+      };
+
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'DELIVERED', payment_method: paymentMethod as any })
+        .update({
+          status: 'DELIVERED',
+          payment_method: 'cash',
+          payment_data: paymentData
+        })
+        .eq('id', paymentOrder.id);
+
+      if (error) throw error;
+
+      toast.success(`🎉 Mesa ${paymentOrder.tableNumber} — Pagamento dividido finalizado!`);
+      setPaymentOrder(null);
+      setSplitPayments([
+        { method: 'cash', amount: 0 },
+        { method: 'card', amount: 0 },
+      ]);
+      setSplitError('');
+    } catch (error) {
+      console.error('Erro no split payment:', error);
+      toast.error('Erro ao finalizar pagamento');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleFinishPayment = async () => {
+    if (!paymentOrder) return;
+
+    if (paymentMethod === 'split') {
+      await handleSplitPayment();
+      return;
+    }
+
+    if (paymentMethod === 'cash' && needsChange && (!changeFor || Number(changeFor) <= paymentOrder.total)) {
+      toast.error('O valor do troco deve ser maior que o total.');
+      return;
+    }
+
+    setProcessingPayment(true);
+    try {
+      const updateData: any = { 
+        status: 'DELIVERED', 
+        payment_method: paymentMethod 
+      };
+
+      if (paymentMethod === 'cash' && needsChange) {
+        updateData.needs_change = true;
+        updateData.change_for = Number(changeFor);
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
         .eq('id', paymentOrder.id);
 
       if (error) throw error;
 
       toast.success(`🎉 Mesa ${paymentOrder.tableNumber} — Pagamento finalizado!`);
       setPaymentOrder(null);
+      setNeedsChange(false);
+      setChangeFor('');
     } catch {
       toast.error('Erro ao finalizar pagamento');
     } finally {
       setProcessingPayment(false);
     }
+  };
+
+  const handlePixPayment = async (order: PendingLocalOrder) => {
+    setPixLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-pix', {
+        body: { 
+          orderId: order.id, 
+          amount: order.total, 
+          customerName: order.customerName || `Mesa ${order.tableNumber}`
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Erro ao gerar PIX');
+
+      if (!data?.pixCode) {
+        throw new Error('PIX code não recebido');
+      }
+
+      setPixCode(data.pixCode);
+      setShowPixModal(true);
+      
+    } catch (error: any) {
+      console.error('Erro PIX:', error);
+      toast.error(error.message || 'Erro ao gerar PIX. Tente novamente.');
+    } finally {
+      setPixLoading(false);
+    }
+  };
+
+  const copyPixCode = () => {
+    navigator.clipboard.writeText(pixCode);
+    setCopied(true);
+    toast.success('Código PIX copiado!');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const statusLabels: Record<string, { label: string; color: string }> = {
@@ -558,6 +761,9 @@ const NewLocalOrder: React.FC = () => {
                   <div key={item.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
                     <div className="flex-1">
                       <p className="text-sm font-medium">{item.name}</p>
+                      {item.observation && (
+                        <p className="text-xs text-muted-foreground italic">📝 {item.observation}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         R$ {item.price.toFixed(2)} × {item.quantity} = <span className="font-bold text-foreground">R$ {(item.price * item.quantity).toFixed(2)}</span>
                       </p>
@@ -623,7 +829,17 @@ const NewLocalOrder: React.FC = () => {
                         <Button
                           size="sm"
                           className="mt-2 gap-1"
-                          onClick={() => { setPaymentOrder(order); setPaymentMethod('cash'); }}
+                          onClick={() => { 
+                            setPaymentOrder(order); 
+                            setPaymentMethod('cash'); 
+                            setNeedsChange(false); 
+                            setChangeFor('');
+                            setSplitPayments([
+                              { method: 'cash', amount: 0 },
+                              { method: 'card', amount: 0 },
+                            ]);
+                            setSplitError('');
+                          }}
                         >
                           <CreditCard className="w-3.5 h-3.5" /> Pagar
                         </Button>
@@ -633,6 +849,7 @@ const NewLocalOrder: React.FC = () => {
                       {order.items.map((item: any, idx: number) => (
                         <p key={idx} className="text-xs text-muted-foreground">
                           {item.quantity}× {item.product?.name || item.name}
+                          {item.observation && <span className="italic ml-1">📝 {item.observation}</span>}
                         </p>
                       ))}
                     </div>
@@ -644,7 +861,7 @@ const NewLocalOrder: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Pizza Configuration Modal */}
+      {/* Pizza Configuration Modal - ATUALIZADO */}
       <Dialog open={pizzaModal} onOpenChange={setPizzaModal}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -700,29 +917,82 @@ const NewLocalOrder: React.FC = () => {
               </div>
             )}
 
-            {/* Border */}
+            {/* Border - MÚLTIPLAS BORDAS */}
             <div>
-              <h4 className="font-medium mb-2">Borda Recheada?</h4>
+              <h4 className="font-medium mb-2">Borda Recheada</h4>
               <div className="flex gap-2 mb-2">
-                <Button variant={!wantsBorder ? 'default' : 'outline'} onClick={() => { setWantsBorder(false); setSelectedBorder(undefined); }} className="flex-1">Não</Button>
-                <Button variant={wantsBorder ? 'default' : 'outline'} onClick={() => setWantsBorder(true)} className="flex-1">Sim</Button>
+                <Button 
+                  variant={!hasBorder ? 'default' : 'outline'} 
+                  onClick={() => { 
+                    setHasBorder(false); 
+                    setSelectedBorders([]); 
+                  }} 
+                  className="flex-1"
+                >
+                  Sem borda
+                </Button>
+                <Button 
+                  variant={hasBorder ? 'default' : 'outline'} 
+                  onClick={() => setHasBorder(true)} 
+                  className="flex-1"
+                >
+                  Com borda
+                </Button>
               </div>
-              {wantsBorder && (
-                <RadioGroup value={selectedBorder?.id || ''} onValueChange={(v) => setSelectedBorder(borders.find(b => b.id === v))} className="space-y-2">
-                  {borders.filter(b => b.price > 0 || (b.prices && b.prices[selectedSize] > 0)).map((border) => {
-                    const borderPrice = border.prices?.[selectedSize] || border.price;
-                    return (
-                      <div key={border.id} className="flex items-center space-x-3">
-                        <RadioGroupItem value={border.id} id={`emp-border-${border.id}`} />
-                        <Label htmlFor={`emp-border-${border.id}`} className="flex-1 cursor-pointer">
+
+              {hasBorder && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">Selecione até 2 sabores de borda:</p>
+                  <div className="grid gap-2">
+                    {borders.map(border => {
+                      const selected = selectedBorders.some(b => b.id === border.id);
+                      const disabled = selectedBorders.length >= 2 && !selected;
+                      
+                      return (
+                        <button
+                          key={border.id}
+                          onClick={() => {
+                            if (selected) {
+                              setSelectedBorders(prev => prev.filter(b => b.id !== border.id));
+                            } else if (selectedBorders.length < 2) {
+                              setSelectedBorders(prev => [...prev, border]);
+                            }
+                          }}
+                          disabled={disabled}
+                          className={`w-full flex justify-between p-3 rounded-lg border transition ${
+                            selected
+                              ? 'border-primary bg-primary/10'
+                              : disabled
+                                ? 'opacity-30 cursor-not-allowed'
+                                : 'hover:border-primary/50'
+                          }`}
+                        >
                           <span>{border.name}</span>
-                          <span className="text-muted-foreground ml-2">+R$ {borderPrice.toFixed(2)}</span>
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </RadioGroup>
+                          <span>+ R$ {border.prices?.[selectedSize]?.toFixed(2) || border.price?.toFixed(2)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {selectedBorders.length > 0 && (
+                    <p className="text-sm text-right text-primary font-medium mt-2">
+                      Total borda: + R$ {calculateBorderTotal().toFixed(2)}
+                    </p>
+                  )}
+                </div>
               )}
+            </div>
+
+            {/* Observação */}
+            <div>
+              <h4 className="font-medium mb-2">Observação (opcional)</h4>
+              <textarea
+                placeholder="Ex: tirar cebola, bem passada, etc..."
+                value={pizzaObservation}
+                onChange={(e) => setPizzaObservation(e.target.value)}
+                className="w-full p-3 rounded-lg border border-border bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
+                rows={2}
+              />
             </div>
 
             {/* Total & Add */}
@@ -731,7 +1001,12 @@ const NewLocalOrder: React.FC = () => {
                 <span className="text-muted-foreground">Total:</span>
                 <span className="text-2xl font-bold text-primary">R$ {calculatePizzaPrice().toFixed(2)}</span>
               </div>
-              <Button onClick={addPizzaToOrder} className="w-full" size="lg" disabled={flavorCount === 2 && selectedFlavors.length < 2}>
+              <Button 
+                onClick={addPizzaToOrder} 
+                className="w-full" 
+                size="lg" 
+                disabled={flavorCount === 2 && selectedFlavors.length < 2}
+              >
                 <Plus className="w-4 h-4 mr-2" /> Adicionar ao Pedido
               </Button>
             </div>
@@ -739,7 +1014,7 @@ const NewLocalOrder: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Payment Dialog */}
+      {/* Payment Dialog - COM SPLIT PAYMENT */}
       <Dialog open={!!paymentOrder} onOpenChange={(open) => !open && setPaymentOrder(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -764,16 +1039,25 @@ const NewLocalOrder: React.FC = () => {
 
               <div>
                 <Label className="mb-2 block">Forma de Pagamento</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {[
                     { value: 'cash', label: '💵 Dinheiro' },
                     { value: 'card', label: '💳 Cartão' },
                     { value: 'pix', label: '📱 PIX' },
+                    { value: 'split', label: '🔄 Dividir' },
                   ].map(opt => (
                     <button
                       key={opt.value}
-                      onClick={() => setPaymentMethod(opt.value as any)}
-                      className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                      onClick={() => {
+                        setPaymentMethod(opt.value as any);
+                        setNeedsChange(false);
+                        setChangeFor('');
+                        
+                        if (opt.value === 'pix' && paymentOrder) {
+                          handlePixPayment(paymentOrder);
+                        }
+                      }}
+                      className={`p-2 rounded-xl border-2 text-xs font-medium transition-all ${
                         paymentMethod === opt.value
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-border hover:border-primary/40'
@@ -785,12 +1069,208 @@ const NewLocalOrder: React.FC = () => {
                 </div>
               </div>
 
-              <Button className="w-full gap-2" onClick={handleFinishPayment} disabled={processingPayment}>
+              {/* CAMPO DE TROCO PARA DINHEIRO */}
+              {paymentMethod === 'cash' && (
+                <div className="space-y-3 border-t pt-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="needsChange"
+                      checked={needsChange}
+                      onChange={(e) => setNeedsChange(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <Label htmlFor="needsChange" className="text-sm font-medium">
+                      Precisa de troco?
+                    </Label>
+                  </div>
+
+                  {needsChange && (
+                    <div className="space-y-2">
+                      <Label htmlFor="changeFor" className="text-sm">Troco para quanto?</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                        <Input
+                          id="changeFor"
+                          type="number"
+                          min={paymentOrder.total + 1}
+                          step="0.01"
+                          value={changeFor}
+                          onChange={(e) => setChangeFor(e.target.value)}
+                          placeholder="0,00"
+                          className="pl-8"
+                        />
+                      </div>
+                      {changeFor && (
+                        <p className="text-sm text-muted-foreground">
+                          Troco: <span className="text-green-600 font-medium">R$ {(Number(changeFor) - paymentOrder.total).toFixed(2)}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* INTERFACE DE SPLIT PAYMENT */}
+              {paymentMethod === 'split' && (
+                <div className="space-y-4 border-t pt-3">
+                  <p className="text-sm font-medium">Divida o pagamento:</p>
+                  
+                  {splitPayments.map((payment, index) => (
+                    <div key={index} className="space-y-2 p-3 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {payment.method === 'cash' ? (
+                            <Banknote className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <CreditCard className="w-4 h-4 text-blue-600" />
+                          )}
+                          <span className="text-sm font-medium capitalize">
+                            {payment.method === 'cash' ? 'Dinheiro' : 'Cartão'}
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {index === 0 ? '1ª forma' : '2ª forma'}
+                        </Badge>
+                      </div>
+                      
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R$</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={paymentOrder.total}
+                          step="0.01"
+                          value={payment.amount || ''}
+                          onChange={(e) => handleSplitAmountChange(index, e.target.value)}
+                          placeholder="0,00"
+                          className="pl-8"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {splitError && (
+                    <Alert variant="destructive" className="py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        {splitError}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex justify-between items-center text-sm p-2 bg-muted/30 rounded-lg">
+                    <span className="font-medium">Total distribuído:</span>
+                    <span className={`font-bold ${
+                      Math.abs(splitPayments.reduce((sum, p) => sum + p.amount, 0) - paymentOrder.total) < 0.01
+                        ? 'text-green-600'
+                        : 'text-destructive'
+                    }`}>
+                      R$ {splitPayments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    A soma dos valores deve ser igual ao total do pedido.
+                  </p>
+                </div>
+              )}
+
+              <Button 
+                className="w-full gap-2" 
+                onClick={handleFinishPayment} 
+                disabled={
+                  processingPayment || 
+                  (paymentMethod === 'pix') ||
+                  (paymentMethod === 'split' && splitError !== '')
+                }
+              >
                 {processingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Finalizar & Fechar Mesa
+                {paymentMethod === 'pix' ? 'Aguardando PIX...' : 'Finalizar & Fechar Mesa'}
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal PIX */}
+      <Dialog open={showPixModal} onOpenChange={setShowPixModal}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <div className="relative">
+            <div className="bg-gradient-to-r from-primary to-primary/80 p-6 text-white">
+              <DialogHeader className="p-0">
+                <DialogTitle className="text-xl text-white flex items-center gap-2">
+                  <QrCode className="w-6 h-6" />
+                  Pagamento PIX - Mesa {paymentOrder?.tableNumber}
+                </DialogTitle>
+                <DialogDescription className="text-white/80">
+                  Escaneie o QR Code ou copie o código PIX
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1 text-white text-sm font-medium">
+              <Clock className="w-3 h-3 inline mr-1" />
+              {formatTime(timeLeft)}
+            </div>
+
+            <div className="p-6">
+              {pixLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+                  <p className="text-muted-foreground">Gerando código PIX...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex justify-center">
+                    <div className="bg-white p-4 rounded-2xl shadow-xl">
+                      <QRCodeSVG value={pixCode} size={220} />
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/30 rounded-xl p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Mesa</span>
+                      <span className="font-medium">{paymentOrder?.tableNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Valor</span>
+                      <span className="font-bold text-primary">R$ {paymentOrder?.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Código PIX (copia e cola)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={pixCode}
+                        readOnly
+                        className="font-mono text-xs bg-muted/30"
+                      />
+                      <Button
+                        size="icon"
+                        variant={copied ? "default" : "outline"}
+                        onClick={copyPixCode}
+                        className="shrink-0 transition-all"
+                      >
+                        {copied ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/5 rounded-lg p-4 border border-primary/10">
+                    <p className="text-sm text-center text-muted-foreground">
+                      Após o pagamento, o pedido será atualizado automaticamente.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

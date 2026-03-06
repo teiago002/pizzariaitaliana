@@ -6,12 +6,19 @@ import {
   TrendingUp,
   ArrowUp,
   ArrowDown,
-  Loader2
+  Loader2,
+  Pizza,
+  Clock,
+  Award,
+  TrendingDown
 } from 'lucide-react';
 import { useOrders } from '@/hooks/useOrders';
+import { useStore } from '@/contexts/StoreContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   BarChart, 
   Bar, 
@@ -24,11 +31,14 @@ import {
   Pie,
   Cell,
   LineChart,
-  Line
+  Line,
+  AreaChart,
+  Area
 } from 'recharts';
 
 const AdminDashboard: React.FC = () => {
   const { orders, loading } = useOrders();
+  const { flavors } = useStore();
   const [dateFilter, setDateFilter] = useState({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
@@ -67,6 +77,12 @@ const AdminDashboard: React.FC = () => {
     const salesGrowth = previousSales > 0 ? ((totalSales - previousSales) / previousSales) * 100 : 0;
     const ordersGrowth = previousOrders.length > 0 ? ((orderCount - previousOrders.length) / previousOrders.length) * 100 : 0;
 
+    // Calcular total de pizzas vendidas
+    const totalPizzas = confirmedOrders.reduce((sum, order) => {
+      const pizzas = order.items.filter(item => item.type === 'pizza');
+      return sum + pizzas.reduce((pizzaSum, pizza) => pizzaSum + pizza.quantity, 0);
+    }, 0);
+
     return {
       totalSales,
       orderCount,
@@ -75,6 +91,39 @@ const AdminDashboard: React.FC = () => {
       ordersGrowth,
     };
   }, [filteredOrders, orders, dateFilter]);
+
+  // Top produtos mais vendidos
+  const topProducts = useMemo(() => {
+    const productCount: Record<string, { name: string; count: number; total: number }> = {};
+    
+    filteredOrders.forEach(order => {
+      order.items.forEach(item => {
+        if (item.type === 'pizza') {
+          const pizzaItem = item as any;
+          const pizzaName = pizzaItem.flavors?.map((f: any) => f.name).join(' + ') || 'Pizza';
+          const key = `pizza-${pizzaName}`;
+          if (!productCount[key]) {
+            productCount[key] = { name: pizzaName, count: 0, total: 0 };
+          }
+          productCount[key].count += item.quantity;
+          productCount[key].total += item.unitPrice * item.quantity;
+        } else {
+          const productItem = item as any;
+          const productName = productItem.product?.name || 'Produto';
+          const key = `prod-${productItem.product?.id || productName}`;
+          if (!productCount[key]) {
+            productCount[key] = { name: productName, count: 0, total: 0 };
+          }
+          productCount[key].count += item.quantity;
+          productCount[key].total += item.unitPrice * item.quantity;
+        }
+      });
+    });
+
+    return Object.values(productCount)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [filteredOrders]);
 
   // Payment method breakdown from REAL data
   const paymentMethodData = useMemo(() => {
@@ -101,6 +150,12 @@ const AdminDashboard: React.FC = () => {
         count: confirmedOrders.filter(o => o.payment.method === 'card').length,
         color: '#3b82f6' 
       },
+      {
+        name: 'Dividido',
+        value: confirmedOrders.filter(o => (o.payment.method as string) === 'split').reduce((sum, o) => sum + o.total, 0),
+        count: confirmedOrders.filter(o => (o.payment.method as string) === 'split').length,
+        color: '#a855f7'
+      },
     ].filter(d => d.value > 0);
     
     return data;
@@ -112,11 +167,15 @@ const AdminDashboard: React.FC = () => {
       o.status !== 'PENDING' && o.status !== 'CANCELLED'
     );
 
-    const salesByDay: Record<string, number> = {};
+    const salesByDay: Record<string, { total: number; count: number }> = {};
     
     confirmedOrders.forEach(order => {
-      const date = new Date(order.createdAt).toLocaleDateString('pt-BR', { weekday: 'short' });
-      salesByDay[date] = (salesByDay[date] || 0) + order.total;
+      const date = new Date(order.createdAt).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('-feira', '');
+      if (!salesByDay[date]) {
+        salesByDay[date] = { total: 0, count: 0 };
+      }
+      salesByDay[date].total += order.total;
+      salesByDay[date].count += 1;
     });
 
     // Get last 7 days
@@ -126,7 +185,8 @@ const AdminDashboard: React.FC = () => {
 
     return orderedDays.map(day => ({
       day: day.charAt(0).toUpperCase() + day.slice(1),
-      vendas: salesByDay[day] || 0,
+      vendas: salesByDay[day]?.total || 0,
+      pedidos: salesByDay[day]?.count || 0,
     }));
   }, [filteredOrders]);
 
@@ -137,16 +197,38 @@ const AdminDashboard: React.FC = () => {
     );
 
     const ordersByHour: Record<number, number> = {};
+    const salesByHour: Record<number, number> = {};
     
     confirmedOrders.forEach(order => {
       const hour = new Date(order.createdAt).getHours();
       ordersByHour[hour] = (ordersByHour[hour] || 0) + 1;
+      salesByHour[hour] = (salesByHour[hour] || 0) + order.total;
     });
 
     return Array.from({ length: 24 }, (_, i) => ({
       hora: `${i}h`,
       pedidos: ordersByHour[i] || 0,
-    })).filter(h => h.pedidos > 0);
+      vendas: salesByHour[i] || 0,
+    }));
+  }, [filteredOrders]);
+
+  // Monthly trend
+  const monthlyTrend = useMemo(() => {
+    const last30Days = filteredOrders.filter(o => 
+      o.status !== 'PENDING' && o.status !== 'CANCELLED'
+    );
+
+    const salesByDate: Record<string, number> = {};
+    
+    last30Days.forEach(order => {
+      const date = new Date(order.createdAt).toLocaleDateString('pt-BR');
+      salesByDate[date] = (salesByDate[date] || 0) + order.total;
+    });
+
+    return Object.entries(salesByDate)
+      .map(([date, sales]) => ({ date, sales }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-7);
   }, [filteredOrders]);
 
   const statsCards = [
@@ -194,7 +276,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Date Filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-card p-2 rounded-lg border">
           <div className="flex items-center gap-2">
             <Label htmlFor="startDate" className="text-sm whitespace-nowrap">De:</Label>
             <Input
@@ -202,7 +284,7 @@ const AdminDashboard: React.FC = () => {
               type="date"
               value={dateFilter.start}
               onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
-              className="w-auto"
+              className="w-auto h-8"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -212,23 +294,22 @@ const AdminDashboard: React.FC = () => {
               type="date"
               value={dateFilter.end}
               onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
-              className="w-auto"
+              className="w-auto h-8"
             />
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statsCards.map((stat, index) => (
           <motion.div
             key={stat.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="admin-card"
           >
-            <Card className="overflow-hidden border-0 shadow-md">
+            <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="p-0">
                 <div className="flex items-stretch">
                   {/* Colored accent strip */}
@@ -264,12 +345,15 @@ const AdminDashboard: React.FC = () => {
         ))}
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Bar Chart - Daily Sales */}
-        <Card className="lg:col-span-2">
+        <Card className="shadow-md">
           <CardHeader>
-            <CardTitle className="text-lg">Vendas por Dia da Semana</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Vendas por Dia da Semana
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -285,9 +369,13 @@ const AdminDashboard: React.FC = () => {
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px'
                       }}
-                      formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Vendas']}
+                      formatter={(value, name) => {
+                        if (name === 'vendas') return [`R$ ${Number(value).toFixed(2)}`, 'Vendas'];
+                        return [value, 'Pedidos'];
+                      }}
                     />
                     <Bar dataKey="vendas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="pedidos" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -300,9 +388,12 @@ const AdminDashboard: React.FC = () => {
         </Card>
 
         {/* Pie Chart - Payment Methods */}
-        <Card>
+        <Card className="shadow-md">
           <CardHeader>
-            <CardTitle className="text-lg">Formas de Pagamento</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-primary" />
+              Formas de Pagamento
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -317,6 +408,7 @@ const AdminDashboard: React.FC = () => {
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
                       {paymentMethodData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -333,65 +425,109 @@ const AdminDashboard: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="flex justify-center gap-4 mt-4">
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
               {paymentMethodData.map((item) => (
                 <div key={item.name} className="flex items-center gap-2">
                   <div 
                     className="w-3 h-3 rounded-full" 
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-sm text-muted-foreground">
-                    {item.name} ({item.count})
+                  <span className="text-sm">
+                    {item.name} <span className="text-muted-foreground">({item.count})</span>
                   </span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* Hourly Distribution */}
+        <Card className="shadow-md lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              Horários de Pico
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[250px]">
+              {hourlyData.some(h => h.pedidos > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={hourlyData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="hora" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="pedidos" 
+                      stroke="hsl(var(--primary))" 
+                      fill="hsl(var(--primary)/0.2)" 
+                      name="Pedidos"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Nenhum pedido no período
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Recent Orders Preview */}
-      <Card className="shadow-md border-0">
-        <CardHeader className="border-b border-border pb-4">
-          <CardTitle className="text-lg">Pedidos Recentes</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {orders.length > 0 ? (
-            <div className="space-y-2">
-              {orders.slice(0, 5).map((order, i) => (
-                <motion.div
-                  key={order.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="flex items-center justify-between p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <ShoppingBag className="w-4 h-4 text-primary" />
+        {/* Recent Orders */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-primary" />
+              Pedidos Recentes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {orders.length > 0 ? (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                {orders.slice(0, 8).map((order, i) => (
+                  <motion.div
+                    key={order.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex items-center justify-between p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <ShoppingBag className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{order.id.substring(0, 8).toUpperCase()}</p>
+                        <p className="text-xs text-muted-foreground truncate">{order.customer.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">{order.id.substring(0, 8).toUpperCase()}</p>
-                      <p className="text-xs text-muted-foreground">{order.customer.name}</p>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className="font-bold text-primary text-sm">R$ {order.total.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-primary text-sm">R$ {order.total.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(order.createdAt).toLocaleString('pt-BR')}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum pedido registrado ainda
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhum pedido registrado ainda
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
   );
 };
 
