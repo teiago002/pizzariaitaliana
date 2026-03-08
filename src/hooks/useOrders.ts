@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Order, OrderStatus, CartItem, CustomerInfo, PaymentMethod, SplitPayment } from '@/types';
+import { Order, OrderStatus, CartItem, CustomerInfo, PaymentMethod } from '@/types';
 import { toast } from 'sonner';
 
 interface DbOrder {
@@ -110,11 +110,10 @@ export function useOrders() {
   const createOrder = async (
     items: CartItem[],
     customer: CustomerInfo,
-    paymentMethod: PaymentMethod | 'split',
+    paymentMethod: PaymentMethod,
     total: number,
     needsChange?: boolean,
-    changeFor?: number,
-    splitPayments?: SplitPayment[]
+    changeFor?: number
   ): Promise<string | null> => {
     try {
       console.log('=== createOrder iniciado ===');
@@ -124,24 +123,16 @@ export function useOrders() {
       console.log('Total:', total);
       console.log('NeedsChange:', needsChange);
       console.log('ChangeFor:', changeFor);
-      console.log('SplitPayments:', splitPayments);
 
       // Prepara o objeto de pagamento para guardar no banco
       const paymentData: any = {};
 
-      // Determinar o payment_method real para o banco (só aceita pix, cash, card)
-      let dbPaymentMethod: 'pix' | 'cash' | 'card';
+      // Determinar o payment_method real para o banco
+      const dbPaymentMethod = paymentMethod;
 
-      if (paymentMethod === 'split') {
-        dbPaymentMethod = 'cash'; // Padrão para split, os detalhes vão no payment_data
-        paymentData.method = 'split';
-        paymentData.splitPayments = splitPayments;
-      } else {
-        dbPaymentMethod = paymentMethod as 'pix' | 'cash' | 'card';
-        if (paymentMethod === 'cash' && needsChange) {
-          paymentData.needsChange = true;
-          paymentData.changeFor = changeFor;
-        }
+      if (paymentMethod === 'cash' && needsChange) {
+        paymentData.needsChange = true;
+        paymentData.changeFor = changeFor;
       }
 
       console.log('dbPaymentMethod:', dbPaymentMethod);
@@ -152,13 +143,18 @@ export function useOrders() {
         customer_phone: customer.phone,
         customer_address: customer.address,
         customer_complement: customer.complement || null,
-        items: items as unknown as import('@/integrations/supabase/types').Json,
+        items: items,
         payment_method: dbPaymentMethod,
-        needs_change: needsChange || false,
-        change_for: changeFor || null,
         total: total,
-        status: 'PENDING' as const,
+        status: 'PENDING',
+        order_type: 'delivery'
       };
+
+      // Campos opcionais
+      if (needsChange) {
+        insertData.needs_change = needsChange;
+        insertData.change_for = changeFor || null;
+      }
 
       // Só adiciona payment_data se não estiver vazio
       if (Object.keys(paymentData).length > 0) {
@@ -169,7 +165,7 @@ export function useOrders() {
 
       const { data, error } = await supabase
         .from('orders')
-        .insert(insertData)
+        .insert([insertData])
         .select()
         .single();
 
@@ -179,15 +175,16 @@ export function useOrders() {
       }
 
       console.log('Resposta do Supabase:', data);
-      
+
       if (!data) {
         console.error('Nenhum dado retornado do Supabase');
         return null;
       }
 
       console.log('Order criado com ID:', data.id);
+      toast.success('Pedido realizado com sucesso!');
       return data.id;
-      
+
     } catch (error) {
       console.error('Error creating order:', error);
       toast.error('Erro ao criar pedido: ' + (error as Error).message);

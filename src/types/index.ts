@@ -95,7 +95,6 @@ export interface PaymentInfo {
   method: PaymentMethod;
   needsChange?: boolean;
   changeFor?: number;
-  splitPayments?: SplitPayment[];
 }
 
 export interface Order {
@@ -128,9 +127,4 @@ export interface PizzeriaSettings {
 
   // ✅ ADICIONAR ISTO
   operatingHours: OperatingHours[];
-}
-
-export interface SplitPayment {
-  method: PaymentMethod;
-  amount: number;
 }

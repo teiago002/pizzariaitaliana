@@ -196,9 +196,26 @@ const OrderTrackingPage: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // FUNÇÃO CORRIGIDA DO WHATSAPP
   const handleWhatsApp = () => {
-    const message = `Olá! Gostaria de informações sobre meu pedido #${order?.id.substring(0, 8).toUpperCase()}`;
-    const whatsappUrl = `https://wa.me/${settings?.whatsapp}?text=${encodeURIComponent(message)}`;
+    if (!settings?.whatsapp) {
+      toast.error('Número de WhatsApp não configurado');
+      return;
+    }
+
+    // Remove todos os caracteres não numéricos
+    const phone = settings.whatsapp.replace(/\D/g, '');
+    
+    // Garantir que tenha o código do país (55 para Brasil)
+    const formattedPhone = phone.startsWith('55') ? phone : `55${phone}`;
+    
+    const message = encodeURIComponent(
+      `Olá! Gostaria de informações sobre meu pedido #${order?.id.substring(0, 8).toUpperCase()}`
+    );
+    
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${message}`;
+    
+    console.log('WhatsApp URL:', whatsappUrl); // Para debug
     window.open(whatsappUrl, '_blank');
   };
 
@@ -438,7 +455,7 @@ const OrderTrackingPage: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Items List */}
+        {/* Items List - CORRIGIDO */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -466,10 +483,8 @@ const OrderTrackingPage: React.FC = () => {
                                 Pizza {item.size} - {item.flavors?.map((f: any) => f.name).join(' + ')}
                               </p>
                               {item.border && (
-                                <p className="text-xs text-muted-foreground">
-                                  Borda: {Array.isArray(item.border) 
-                                    ? item.border.map((b: any) => b.name).join(' + ')
-                                    : item.border.name}
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  🧀 Borda: {item.border.name}
                                 </p>
                               )}
                             </div>

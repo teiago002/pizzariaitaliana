@@ -1,8 +1,8 @@
 -- Create enum types
-CREATE TYPE public.pizza_size AS ENUM ('P', 'M', 'G', 'GG');
-CREATE TYPE public.payment_method AS ENUM ('pix', 'cash', 'card');
-CREATE TYPE public.order_status AS ENUM ('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED');
-CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+-- CREATE TYPE public.pizza_size AS ENUM ('P', 'M', 'G', 'GG');
+--CREATE TYPE public.payment_method AS ENUM ('pix', 'cash', 'card');
+--CREATE TYPE public.order_status AS ENUM ('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED');
+--CREATE TYPE public.app_role AS ENUM ('admin', 'user');
 
 -- Create pizzeria settings table
 CREATE TABLE public.pizzeria_settings (
